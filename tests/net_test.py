@@ -1,4 +1,4 @@
-from smart_mlp import *
+from smartnet import *
 import numpy as np
 
 x = SmartTensor(np.random.rand(10, 100))

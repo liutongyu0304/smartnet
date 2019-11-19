@@ -9,16 +9,10 @@ class SmartLinearLayer(SmartLayer):
         self._input_nodes = input_nodes
         self._output_nodes = output_nodes
         self._has_bias = has_bias
-        self._weight = None
-        self._bias = None
-        self._parameters = {name + "_weight": self._weight, name+"_bias": self._bias}
-        self._trainable_parameters = dict()
-
-        if self._need_backward:
-            if self._weight.requires_grad:
-                self._trainable_parameters["weight"] = self._weight
-            if self._bias.requires_grad:
-                self._trainable_parameters["bias"] = self._bias
+        self._weight = SmartTensor(None)
+        self._bias = SmartTensor(None)
+        self._reset_parameters()
+        self._reset_trainable_parameters()
         self._previous_inputs = 1
         self._outside_inputs = 0
 
@@ -35,7 +29,11 @@ class SmartLinearLayer(SmartLayer):
 
         layer_output = SmartTensor(np.zeros((self._output_nodes, layer_input)))
         self._weight = SmartTensor(np.random.rand(self._output_nodes, self._input_nodes))
-        self._bias = SmartTensor(np.random.rand(self._output_nodes, 1))
+        if self._has_bias:
+            self._bias = SmartTensor(np.random.rand(self._output_nodes, 1))
+        self._reset_parameters()
+        self._reset_trainable_parameters()
+
         self._inputs = inputs
         self._outputs = [layer_output]
 
@@ -68,6 +66,10 @@ class SmartLinearLayer(SmartLayer):
             Warning("you have changed Linear Layer need backward from {} "
                     "to {}".format(self._need_backward, need_backward))
             self._need_backward = need_backward
+            self._weight.set_requires_grad(need_backward)
+            if self._has_bias:
+                self._bias.set_requires_grad(need_backward)
+            self._reset_trainable_parameters()
         else:
             pass
 
@@ -77,3 +79,18 @@ class SmartLinearLayer(SmartLayer):
                 "output_nodes": self._output_nodes,
                 "has_bias": self._has_bias,
                 "need_backward": True}
+    
+    def _reset_parameters(self):
+        self._parameters = dict()
+        self._parameters[self._name + "_weight"] = self._weight
+        if self._has_bias:
+            self._parameters[self._name+"_bias"] = self._bias
+    
+    def _reset_trainable_parameters(self):
+        self._trainable_parameters = dict()
+        if self._need_backward:
+            if self._weight.requires_grad:
+                self._trainable_parameters["weight"] = self._weight
+            if self._has_bias:
+                if self._bias.requires_grad:
+                    self._trainable_parameters["bias"] = self._bias

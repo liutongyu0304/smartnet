@@ -1,0 +1,4 @@
+.vscode/*
+smartnet/__pycache__/*
+smartnet/optims/__pycache__/*
+smartnet/layers/__pycache__/*

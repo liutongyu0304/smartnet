@@ -4,7 +4,7 @@ from .tensor import *
 
 
 class SmartNet(object):
-    def __init__(self, inputs):
+    def __init__(self):
         self._layers = list()
 
     def add_layer(self, layer, inputs=None):
@@ -14,7 +14,7 @@ class SmartNet(object):
                 raise Exception("{} already exists in net".format(layer.name))
 
         if inputs is not None and not isinstance(inputs, list):
-            inputs = list(inputs)
+            inputs = [inputs]
 
         if len(self._layers) == 0:
             self._layers.append(layer)
@@ -33,7 +33,7 @@ class SmartNet(object):
     def forward(self):
         for layer in self._layers:
             layer.forward()
-        return self._layers[-1].outputs[0][0]
+        return self._layers[-1].outputs[0].data[0]
 
     def backward(self):
         self._layers.reverse()
@@ -48,7 +48,7 @@ class SmartNet(object):
     def parameters(self):
         pars = dict()
         for layer in self._layers:
-            for name, par in layer.paramerters:
+            for name, par in layer.parameters.items():
                 if name not in pars.keys():
                     pars[name] = par
         return pars
@@ -56,7 +56,7 @@ class SmartNet(object):
     def trainable_parameters(self):
         pars = dict()
         for layer in self._layers:
-            for name, par in layer.trainable_paramerters:
+            for name, par in layer.trainable_parameters.items():
                 if name not in pars.keys():
                     pars[name] = par
         return pars

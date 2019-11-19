@@ -10,23 +10,23 @@ class SmartMSELayer(SmartLayer):
         self._outside_inputs = 1
 
     def set_up_layer(self, inputs):
+        self._inputs = inputs
         layer_input = self._inputs[0]
         label = self._inputs[1]
-        if label.shape != 2 or label.shape != layer_input.shape:
+        if len(label.shape) != 2 or label.shape != layer_input.shape:
             raise Exception("mse layer {} layer input shape {} and label shape "
                             "{} does not match.".format(self._name, layer_input.shape, label.shape))
-        self._inputs = inputs
-        self._outputs = SmartTensor(np.zeros((1,)))
+        self._outputs = [SmartTensor(np.zeros((1,)))]
 
     def forward(self):
         layer_input = self._inputs[0]
         label = self._inputs[1]
 
-        loss = np.sum(layer_input.data - label.data) / layer_input.shape[1]
+        loss = 0.5 * np.sum((layer_input.data - label.data)**2) / layer_input.shape[0]
         self._outputs[0].data[0] = loss
 
     def backward(self):
         layer_input = self._inputs[0]
         label = self._inputs[1]
 
-        np.add(layer_input.data, -label.data, layer_input.grad) / layer_input.shape[1]
+        np.add(layer_input.data, -label.data, layer_input.grad) / layer_input.shape[0]

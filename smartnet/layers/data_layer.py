@@ -15,7 +15,7 @@ class SmartDataLayer(SmartLayer):
             self._inputs = inputs
         else:
             self._inputs = [inputs]
-        self._outputs = inputs
+        self._outputs = self._inputs
 
     def forward(self):
         pass

@@ -25,12 +25,12 @@ class SmartLinearLayer(SmartLayer):
         if total_nodes % self._input_nodes != 0:
             raise Exception("linear layer {} total count of inputs[0] {} does not match "
                             "layer input nodes {}".format(self._name, total_nodes, self._input_nodes))
-        layer_input.reshape((self._input_nodes, -1))
+        layer_input.reshape((-1, self._input_nodes))
 
-        layer_output = SmartTensor(np.zeros((self._output_nodes, layer_input)))
-        self._weight = SmartTensor(np.random.rand(self._output_nodes, self._input_nodes))
+        layer_output = SmartTensor(np.zeros((layer_input.shape[0], self._output_nodes)))
+        self._weight = SmartTensor(np.random.rand(self._input_nodes, self._output_nodes))
         if self._has_bias:
-            self._bias = SmartTensor(np.random.rand(self._output_nodes, 1))
+            self._bias = SmartTensor(np.random.rand(self._output_nodes))
         self._reset_parameters()
         self._reset_trainable_parameters()
 
@@ -42,7 +42,7 @@ class SmartLinearLayer(SmartLayer):
         layer_output = self._outputs[0]
         # z(n) = w(n) * a(n-1) + b(n)
         data = layer_output.data
-        np.matmul(self._weight.data, layer_input.data, data)
+        np.matmul(layer_input.data, self._weight.data, data)
         if self._has_bias:
             data += self._bias.data
 
@@ -53,13 +53,13 @@ class SmartLinearLayer(SmartLayer):
         layer_output = self._outputs[0]
         # da = w.t * dz
         grad = layer_input.grad
-        np.matmul(self._weight.data.transpose(), layer_output.grad, grad)
+        np.matmul(layer_output.grad, self._weight.data.transpose(), grad)
 
         if self._need_backward:
-            np.matmul(layer_output.grad, layer_input.transpose(), self._weight.grad)
+            np.matmul(layer_input.data.transpose(), layer_output.grad, self._weight.grad)
             if self._has_bias:
                 bias_grad = self._bias.grad
-                np.sum(layer_output.grad, axis=1, out=bias_grad)
+                np.sum(layer_output.grad, axis=0, out=bias_grad)
 
     def set_need_backward(self, need_backward):
         if need_backward != self._need_backward:

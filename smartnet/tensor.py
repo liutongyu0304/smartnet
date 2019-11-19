@@ -35,6 +35,10 @@ class SmartTensor(object):
             self._grad[:] = 0.0
 
     @property
+    def requires_grad(self):
+        return self._requires_grad
+
+    @property
     def data(self):
         return self._value
 

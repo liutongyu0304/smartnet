@@ -13,4 +13,4 @@ class SmartSGDOptim(SmartOptim):
             if self._weight_decay != 0:
                 par.data = par.data * (1 + self._weight_decay) - self._lr * par.grad
             else:
-                par.data -= self._lr * par.grad
+                par.data[:] = par.data - self._lr * par.grad

@@ -36,10 +36,19 @@ class SmartNet(object):
         return self._layers[-1].outputs[0].data[0]
 
     def backward(self):
-        self._layers.reverse()
-        for layer in self._layers:
+        end_backward = -1
+        for i, layer in enumerate(self._layers):
+            if layer.need_backward:
+                end_backward = i
+                break
+
+        n = len(self._layers)
+        for i in range(n):
+            k = n - i - 1
+            if k < end_backward:
+                break
+            layer = self._layers[k]
             layer.backward()
-        self._layers.reverse()
 
     def zero_grad(self):
         for layer in self._layers:
@@ -60,3 +69,13 @@ class SmartNet(object):
                 if name not in pars.keys():
                     pars[name] = par
         return pars
+
+    def get_layer(self, name):
+        for layer in self._layers:
+            if layer.name == name:
+                return layer
+        return None
+
+    @property
+    def layers(self):
+        return self._layers

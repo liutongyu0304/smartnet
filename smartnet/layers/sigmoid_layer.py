@@ -11,8 +11,8 @@ class SmartSigmoidLayer(SmartLayer):
 
     def set_up_layer(self, inputs):
         # sigmoid layer gets one input and one output
-        layer_input = self._inputs[0]
         self._inputs = inputs
+        layer_input = self._inputs[0]
 
         layer_output = SmartTensor(np.zeros_like(layer_input.data))
         self._outputs = [layer_output]
@@ -20,12 +20,12 @@ class SmartSigmoidLayer(SmartLayer):
     def forward(self):
         layer_input = self._inputs[0]
         layer_output = self._outputs[0]
-        # a(n) = exp(-z(n)) / (1 + exp(-z(n)))
-        layer_output.data[:] = np.exp(-layer_input.data) / (1 + np.exp(-layer_input.data))
+        # a(n) = 1 / (1 + exp(-z(n)))
+        layer_output.data[:] = 1 / (1 + np.exp(-layer_input.data))
 
     def backward(self):
         layer_input = self._inputs[0]
         layer_output = self._outputs[0]
-        # dz = a * (1 - a)
+        # dz += a * (1 - a)
 
-        layer_input.grad[:] = layer_output.grad * layer_output.data * (1 - layer_output.data)
+        layer_input.grad[:] = layer_input.grad + layer_output.grad * layer_output.data * (1 - layer_output.data)

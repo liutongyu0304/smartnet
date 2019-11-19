@@ -27,8 +27,16 @@ class SmartLayer(object):
         return dict()
 
     def zero_grad(self):
+        """
+        # description
+            clear all the gradients of parameters,inputs and outputs
+        """
         for par in self._trainable_parameters.values():
             par.zero_grad()
+        for layer_input in self._inputs:
+            layer_input.zero_grad()
+        for layer_output in self._outputs:
+            layer_output.zero_grad()
 
     def set_need_backward(self, need_backward):
         if need_backward != self._need_backward:
@@ -37,6 +45,10 @@ class SmartLayer(object):
             self._need_backward = need_backward
         else:
             pass
+
+    @property
+    def need_backward(self):
+        return self._need_backward
 
     @property
     def name(self):

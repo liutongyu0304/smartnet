@@ -22,11 +22,14 @@ class SmartMSELayer(SmartLayer):
         layer_input = self._inputs[0]
         label = self._inputs[1]
 
-        loss = 0.5 * np.sum((layer_input.data - label.data)**2) / layer_input.shape[0]
+        loss = np.sum((layer_input.data - label.data)**2) / layer_input.shape[0]
         self._outputs[0].data[0] = loss
 
     def backward(self):
         layer_input = self._inputs[0]
         label = self._inputs[1]
 
-        np.add(layer_input.data, -label.data, layer_input.grad) / layer_input.shape[0]
+        if layer_input.requires_grad:
+            layer_input.grad[:] = layer_input.grad + 2 * (layer_input.data - label.data) / layer_input.shape[0]
+        if label.requires_grad:
+            label.grad[:] = label.grad + 2 * (label.data - layer_input.data) / layer_input.shape[0]

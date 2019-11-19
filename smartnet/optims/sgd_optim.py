@@ -11,6 +11,6 @@ class SmartSGDOptim(SmartOptim):
     def step(self):
         for par in self._trainable_parameters.values():
             if self._weight_decay != 0:
-                par.data = par.data * (1 + self._weight_decay) - self._lr * par.grad
+                par.data[:] = par.data * (1 + self._weight_decay) - self._lr * par.grad
             else:
                 par.data[:] = par.data - self._lr * par.grad

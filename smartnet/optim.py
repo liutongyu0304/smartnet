@@ -14,3 +14,6 @@ class SmartOptim(object):
     def zero_grad(self):
         for par in self._trainable_parameters.values():
             par.zero_grad()
+
+    def get_property(self):
+        return dict()

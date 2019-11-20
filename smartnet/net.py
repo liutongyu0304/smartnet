@@ -56,19 +56,19 @@ class SmartNet(object):
             layer.zero_grad()
 
     def parameters(self):
-        pars = dict()
+        # allow duplicate parameters
+        pars = list()
         for layer in self._layers:
             for name, par in layer.parameters.items():
-                if name not in pars.keys():
-                    pars[name] = par
+                pars.append({"name": name, "parameter": par})
         return pars
 
     def trainable_parameters(self):
-        pars = dict()
+        # allow duplicate parameters
+        pars = list()
         for layer in self._layers:
             for name, par in layer.trainable_parameters.items():
-                if name not in pars.keys():
-                    pars[name] = par
+                pars.append({"name": name, "parameter": par})
         return pars
 
     def get_layer(self, name):
@@ -76,6 +76,15 @@ class SmartNet(object):
             if layer.name == name:
                 return layer
         return None
+
+    def total_trainable_size(self):
+        total = 0
+        for layer in self._layers:
+            total += layer.total_trainable_size()
+        return total
+
+    def total_layers(self):
+        return len(self._layers)
 
     @property
     def layers(self):

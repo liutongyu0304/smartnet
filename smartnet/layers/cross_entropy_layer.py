@@ -60,3 +60,4 @@ class SmartCrossEntropyLayer(SmartLayer):
         soft_max_output = self._outputs[1]
         if layer_input.requires_grad:
             layer_input.grad[:] = layer_input.grad + soft_max_output.data - label.data
+

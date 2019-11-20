@@ -9,9 +9,10 @@ class SmartNet(object):
 
     def add_layer(self, layer, inputs=None):
         assert isinstance(layer, SmartLayer)
-        for layer_ in self._layers:
-            if layer.name == layer_.name:
-                raise Exception("{} already exists in net".format(layer.name))
+        # allow the same layer in different position
+        # for layer_ in self._layers:
+        #     if layer.name == layer_.name:
+        #         raise Exception("{} already exists in net".format(layer.name))
 
         if inputs is not None and not isinstance(inputs, list):
             inputs = [inputs]

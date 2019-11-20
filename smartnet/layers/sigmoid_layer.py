@@ -11,7 +11,7 @@ class SmartSigmoidLayer(SmartLayer):
 
     def set_up_layer(self, inputs):
         # sigmoid layer gets one input and one output
-        self._inputs = inputs
+        self._inputs = [inputs[0]]
         layer_input = self._inputs[0]
 
         layer_output = SmartTensor(np.zeros_like(layer_input.data))

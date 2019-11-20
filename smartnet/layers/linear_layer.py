@@ -61,16 +61,18 @@ class SmartLinearLayer(SmartLayer):
         if total_nodes % self._input_nodes != 0:
             raise Exception("linear layer {} total count of inputs[0] {} does not match "
                             "layer input nodes {}".format(self._name, total_nodes, self._input_nodes))
-        layer_input.reshape((-1, self._input_nodes))
+        # doing reshape operation for cnn layer with four dimensions
+        # layer_input_ and layer_input still share the same memory
+        layer_input_ = layer_input.reshape((-1, self._input_nodes))
 
-        layer_output = SmartTensor(np.zeros((layer_input.shape[0], self._output_nodes)))
+        layer_output = SmartTensor(np.zeros((layer_input_.shape[0], self._output_nodes)))
         self._weight = SmartTensor(np.random.rand(self._input_nodes, self._output_nodes))
         if self._has_bias:
             self._bias = SmartTensor(np.random.rand(self._output_nodes))
         self._reset_parameters()
         self._reset_trainable_parameters()
 
-        self._inputs = inputs
+        self._inputs = [layer_input_]
         self._outputs = [layer_output]
 
     def forward(self):

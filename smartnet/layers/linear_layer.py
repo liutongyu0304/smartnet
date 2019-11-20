@@ -133,10 +133,18 @@ class SmartLinearLayer(SmartLayer):
         self._trainable_parameters = dict()
         if self._need_backward:
             if self._weight.requires_grad:
-                self._trainable_parameters["weight"] = self._weight
+                self._trainable_parameters[self._name + "weight"] = self._weight
             if self._has_bias:
                 if self._bias.requires_grad:
-                    self._trainable_parameters["bias"] = self._bias
+                    self._trainable_parameters[self._name + "bias"] = self._bias
+
+    def total_trainable_size(self):
+        total = 0
+        if self._weight.requires_grad:
+            total += self._weight.data.size
+        if self._has_bias and self._bias.requires_grad:
+            total += self._bias.data.size
+        return total
 
     @property
     def weight(self):

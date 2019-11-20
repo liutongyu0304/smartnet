@@ -46,6 +46,13 @@ class SmartLayer(object):
         else:
             pass
 
+    def total_trainable_size(self):
+        """
+        # description:
+            total size of all the trainable parameters.
+        """
+        return 0
+
     @property
     def need_backward(self):
         return self._need_backward

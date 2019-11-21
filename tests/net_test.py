@@ -34,7 +34,7 @@ class SmartNetTest(unittest.TestCase):
         return net
 
     def create_opt(self, net):
-        opt = SmartSGDOptim("sgd", net.trainable_parameters(), lr=0.01, weight_decay=0.0001)
+        opt = SmartSGDOptim("sgd", net.trainable_parameters(), lr=0.01, weight_decay=0.0)
         opt.zero_grad()
         loss = net.forward()
         net.backward()

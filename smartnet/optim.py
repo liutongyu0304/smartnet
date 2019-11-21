@@ -12,7 +12,8 @@ class SmartOptim(object):
         raise NotImplementedError
 
     def zero_grad(self):
-        for par in self._trainable_parameters.values():
+        for value in self._trainable_parameters:
+            par = value["parameter"]
             par.zero_grad()
 
     def get_property(self):

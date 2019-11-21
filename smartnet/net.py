@@ -51,6 +51,21 @@ class SmartNet(object):
             layer = self._layers[k]
             layer.backward()
 
+    def predict(self, inputs):
+        """
+        # description:
+            predict result after training.
+        # parameters:
+            input: SmartTensor
+        # return:
+            loss: float
+            output: SmartTensor
+        """
+        self._layers[0].inputs[0].data[:] = inputs.data
+        for layer in self._layers:
+            layer.forward()
+        return self._layers[-1].outputs[0].data[0], self._layers[-1].inputs[0].data
+
     def zero_grad(self):
         for layer in self._layers:
             layer.zero_grad()

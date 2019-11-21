@@ -21,7 +21,7 @@ class SmartReluLayer(SmartLayer):
         layer_input = self._inputs[0]
         layer_output = self._outputs[0]
         # a(n) = max(0, z(n))
-        layer_output.data[:] = max(0, layer_input.data)
+        layer_output.data[:] = np.maximum(0, layer_input.data)
 
     def backward(self):
         layer_input = self._inputs[0]

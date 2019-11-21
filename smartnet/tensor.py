@@ -20,6 +20,7 @@ class SmartTensor(object):
         else:
             self._value.reshape(shape)
             self._grad.reshape(shape)
+        return self
     
     def set_requires_grad(self, requires_grad):
         self._requires_grad = requires_grad

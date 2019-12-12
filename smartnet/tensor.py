@@ -2,7 +2,7 @@
 import numpy as np
 from .storage import *
 from .op import *
-import graph
+from . import graph
 
 
 class SmartTensor(object):
@@ -13,16 +13,9 @@ class SmartTensor(object):
         self._is_leaf = True
         self._retain_grad = False
         self._op = None
-        graph = graph.get_graph()
-        graph.add_tensor(self)
-
-    def reshape(self, shape):
-        self._data.reshape(shape)
-        if self._grad is not None:
-            self._grad.reshape(shape)
-        return self
+        graph.get_graph().add_tensor(self)
     
-    def requires_grad(self, requires_grad=True):
+    def set_requires_grad(self, requires_grad=True):
         if not self._is_leaf:
             raise Exception("non leaf tensor can not be set requires_grad.")
         self._requires_grad = requires_grad
@@ -62,7 +55,7 @@ class SmartTensor(object):
     def transpose(self):
         return TransposeOperation()(self)
     
-    def __neg__(self)
+    def __neg__(self):
         return NegativeOperation()(self)
 
     def __add__(self, right):
@@ -71,11 +64,11 @@ class SmartTensor(object):
     def __radd__(self, left):
         return AddOperation()(left, self)
 
-    def __minus__(self, right):
-        return MinusOperation()(self, right)
+    def __sub__(self, right):
+        return SubOperation()(self, right)
 
-    def __rminus__(self, left):
-        return MinusOperation()(left, self)
+    def __rsub__(self, left):
+        return SubOperation()(left, self)
 
     def __mul__(self, right):
         return MulOperation()(self, right)
@@ -90,7 +83,7 @@ class SmartTensor(object):
         return DivideOperation()(left, self)
 
     def __pow__(self, right):
-        return PowOperation()(self, right)
+        pass #return PowOperation()(self, right)
 
     def matmul(self, right):
         return MatmulOperation()(self, right)
@@ -131,49 +124,63 @@ class SmartTensor(object):
 
 
 class TensorOp(object):
+    @staticmethod
     def reshape(tensor, shape):
         return tensor.reshape(shape)
 
+    @staticmethod
     def transpose(tensor):
         return tensor.transpose()
 
+    @staticmethod
     def add(left, right):
         return left + right
 
+    @staticmethod
     def minus(left, right):
         return left - right
 
+    @staticmethod
     def mul(left, right):
         return left * right
 
+    @staticmethod
     def divide(left, right):
         return left / right
 
+    @staticmethod
     def matmul(left, right):
         return left.matmul(right)
 
+    @staticmethod
     def exp(tensor):
         return tensor.exp()
 
+    @staticmethod
     def log(tensor):
         return tensor.log()
 
+    @staticmethod
     def zeros(shape, device="cpu", dtype=np.float32, requires_grad=True):
         tensor = SmartTensor(shape, device=device, dtype=dtype, requires_grad=requires_grad)
         tensor.data._data[:] = 0.0
         return tensor
 
+    @staticmethod
     def zeros_like(tensor):
         return SmartTensor(tensor.shape, device=tensor.device, dtype=tensor.dtype, requires_grad=tensor.requires_grad)
 
+    @staticmethod
     def ones(shape, device="cpu", dtype=np.float32, requires_grad=True):
         tensor = SmartTensor(shape, device=device, dtype=dtype, requires_grad=requires_grad)
         tensor.data._data[:] = 1.0
         return tensor
 
+    @staticmethod
     def ones_like(tensor):
-        return self.ones(tensor.shape, device=tensor.device, dtype=tensor.dtype, requires_grad=tensor.requires_grad)
+        return TensorOp.ones(tensor.shape, device=tensor.device, dtype=tensor.dtype, requires_grad=tensor.requires_grad)
 
+    @staticmethod
     def random(shape, device="cpu", dtype=np.float32, requires_grad=True):
         tensor = SmartTensor(shape, device=device, dtype=dtype, requires_grad=requires_grad)
         tensor.data._data[:] = random_on_device(shape, device=device, dtype=dtype)

@@ -1,6 +1,4 @@
-import sys
-sys.path.append("/Home/kisen/liuxm/smartnet/smartnet/")
-
+# coding=utf-8
 from smartnet.tensor import *
 
 a = TensorOp.zeros((3,4))

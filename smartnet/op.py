@@ -3,28 +3,33 @@ from .tensor import *
 
 
 class SmartOperation(object):
-    def __init__(name):
+    def __init__(self, name):
         self._name = name
         self._inputs = list()
         self._output = None
     
-    def forward(*args):
+    def forward(self, *args):
         raise NotImplementedError()
 
-    def backward():
+    def backward(self):
         raise NotImplementedError()
 
-    def __call__(*inputs):
-        self._output = self.forward(*inputs)
+    def __call__(self, *args):
+        self._output = self.forward(*args)
+        for t in self._inputs:
+            if isinstance(t, SmartTensor):
+                if t.requires_grad:
+                    self._output.set_requires_grad(True)
+                    break
         self._output.set_op(self)
         self._output.set_leaf(False)
         
 
-def ReshapeOperation(SmartOperation):
+class ReshapeOperation(SmartOperation):
     def __init__(self):
         super(ReshapeOperation, self).__init__("ReshapeOperation")
     
-    def forward(*args):
+    def forward(self, *args):
         assert len(args) == 2
         self._inputs = args
         assert isinstance(self._inputs[0], SmartTensor)
@@ -37,11 +42,11 @@ def ReshapeOperation(SmartOperation):
         data[:] = storage.data
 
 
-def TransposeOperation(SmartOperation):
+class TransposeOperation(SmartOperation):
     def __init__(self):
         super(TransposeOperation, self).__init__("TransposeOperation")
     
-    def forward(*args):
+    def forward(self, *args):
         assert len(args) == 1
         self._inputs = args
         assert isinstance(self._inputs[0], SmartTensor)
@@ -54,11 +59,11 @@ def TransposeOperation(SmartOperation):
         data[:] = storage.data                              
 
 
-def NegativeOperation(SmartOperation):
+class NegativeOperation(SmartOperation):
     def __init__(self):
         super(NegativeOperation, self).__init__("NegativeOperation")
     
-    def forward(*args):
+    def forward(self, *args):
         assert len(args) == 1
         self._inputs = args
         assert isinstance(self._inputs[0], SmartTensor)
@@ -70,11 +75,11 @@ def NegativeOperation(SmartOperation):
         data[:] = self._output.grad.data
 
 
-def AddOperation(SmartOperation):
+class AddOperation(SmartOperation):
     def __init__(self):
         super(AddOperation, self).__init__("AddOpeartion")
     
-    def forward(*args):
+    def forward(self, *args):
         assert len(args) == 2
         self._inputs = args
         assert isinstance(self._inputs[0], SmartTensor) or isinstance(self._inputs[1], SmartTensor)
@@ -99,11 +104,11 @@ def AddOperation(SmartOperation):
                         break
         
 
-def MinusOperation(SmartOperation):
+class SubOperation(SmartOperation):
     def __init__(self):
-        super(MinusOperation, self).__init__("MinusOpeartion")
+        super(SubOperation, self).__init__("MinusOpeartion")
     
-    def forward(*args):
+    def forward(self, *args):
         assert len(args) == 2
         self._inputs = args
         assert isinstance(self._inputs[0], SmartTensor) or isinstance(self._inputs[1], SmartTensor)
@@ -134,11 +139,11 @@ def MinusOperation(SmartOperation):
                         break    
 
 
-def MulOperation(SmartOperation):
+class MulOperation(SmartOperation):
     def __init__(self):
         super(MulOperation, self).__init__("MulOpeartion")
     
-    def forward(*args):
+    def forward(self, *args):
         assert len(args) == 2
         self._inputs = args
         assert isinstance(self._inputs[0], SmartTensor) or isinstance(self._inputs[1], SmartTensor)
@@ -162,11 +167,11 @@ def MulOperation(SmartOperation):
             data[:] = storage.data
 
 
-def DivideOperation(SmartOperation):
+class DivideOperation(SmartOperation):
     def __init__(self):
         super(DivideOperation, self).__init__("DivideOperation")
     
-    def forward(*args):
+    def forward(self, *args):
         assert len(args) == 2
         self._inputs = args
         assert isinstance(self._inputs[0], SmartTensor) or isinstance(self._inputs[1], SmartTensor)
@@ -174,8 +179,8 @@ def DivideOperation(SmartOperation):
         return self._inputs[0] / self._inputs[1]
 
     def backward(self):
-        self._backward_num(self._inputs[0], self._inputs[1])
-        self._backward_den(self._inputs[0], self._inputs[1])
+        self._backward_left(self._inputs[0], self._inputs[1])
+        self._backward_right(self._inputs[0], self._inputs[1])
 
     def _backward_left(self, input, input1):
         # input / input1
@@ -202,11 +207,11 @@ def DivideOperation(SmartOperation):
             data[:] = -storage.data
 
 
-def MatmulOperation(SmartOperation):
+class MatmulOperation(SmartOperation):
     def __init__(self):
         super(MatmulOperation, self).__init__("MatmulOperation")
     
-    def forward(*args):
+    def forward(self, *args):
         assert len(args) == 2
         self._inputs = args
         assert isinstance(self._inputs[0], SmartTensor) and isinstance(self._inputs[1], SmartTensor)
@@ -242,9 +247,12 @@ def MatmulOperation(SmartOperation):
             data[:] = storage.data 
 
 
-def ExpOperation(SmartOperation):  
+class ExpOperation(SmartOperation):
     def __init__(self):
         super(ExpOperation, self).__init__("ExpOperation")
+
+    def forward(self, *args):
+        return
 
     def backward(self):
         input = self._inputs[0]
@@ -255,7 +263,7 @@ def ExpOperation(SmartOperation):
         data[:] = storage.data
 
 
-def LogOperation(SmartOperation):  
+class LogOperation(SmartOperation):
     def __init__(self):
         super(LogOperation, self).__init__("LogOperation")
 

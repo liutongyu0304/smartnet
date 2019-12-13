@@ -32,18 +32,26 @@ def log_on_device(data, device):
         return gnp.log(data)
 
 
+def sum_on_device(data, device, axis, keepdims):
+    if device == "cpu":
+        return np.sum(data, axis=axis, keepdims=keepdims)
+    else:
+        return gnp.log(data)
+
+
 def random_on_device(shape, device, dtype):
     assert isinstance(shape, tuple)
     if device == "cpu":
-        return np.random.rand(shape, dtype=dtype)
+        return np.random.rand(*shape)
     else:
-        return gnp.random.rand(shape, dtype=dtype)
+        return gnp.random.rand(*shape)
 
 
 class SmartStorage(object):
     def __init__(self, shape, device="cpu", dtype=np.float32):
         self._device = device
         self._shape = shape
+        self._dtype = dtype
         self._data = create_data_on_device(shape, device, dtype)
         self._size = 1
         for i in self._shape:
@@ -81,14 +89,14 @@ class SmartStorage(object):
     def __radd__(self, left):
         return self + left
 
-    def __minus__(self, right):
+    def __sub__(self, right):
         if isinstance(right, SmartStorage):
             data = self._data - right.data
         else:
             data = self._data - right       
         return self.copy(data)
 
-    def __rminus__(self, left):
+    def __rsub__(self, left):
         if isinstance(left, SmartStorage):
             data = left.data - self._data
         else:
@@ -123,6 +131,14 @@ class SmartStorage(object):
         data = self._data**right
         return self.copy(data)
 
+    def __str__(self):
+        s = "SmartStorage shape: {}, device: {}, dtype: {}, " \
+            "\ndata: {}".format(self._shape, self._device, self._dtype, self._data)
+        return s
+
+    def __repr__(self):
+        return self.__str__(self)
+
     def matmul(self, right):
         assert self._device == right.device
         data = matmul_on_device(self, right, self._device)    
@@ -135,14 +151,20 @@ class SmartStorage(object):
     def log(self):
         data = log_on_device(self._data, self._device)
         return self.copy(data)
+
+    def sum(self, axis=None, keepdims=False):
+        data = sum_on_device(self._data, self._device, axis, keepdims)
+        if len(data.shape) == 0:
+            data = data.reshape((1, ))
+        return self.copy(data)
     
     def copy(self, data=None):
         if data is None:
-            newStorage = SmartStorage(self._data.shape, self._device, data.dtype)
+            storage = SmartStorage(self._data.shape, self._device, data.dtype)
         else:
-            newStorage = SmartStorage(data.shape, self._device, data.dtype)
-        newStorage._data[:] = data
-        return newStorage
+            storage = SmartStorage(data.shape, self._device, data.dtype)
+        storage._data[:] = data
+        return storage
 
     def set_zeros(self):
         self._data[:] = 0.0
@@ -163,6 +185,14 @@ class SmartStorage(object):
     def data(self):
         return self._data
 
+    @property
+    def device(self):
+        return self._device
+
+    @property
+    def dtype(self):
+        return self._dtype
+
 
 class StorageOp(object):
     @staticmethod
@@ -178,7 +208,7 @@ class StorageOp(object):
         return left + right
 
     @staticmethod
-    def minus(left, right):
+    def sub(left, right):
         return left - right
 
     @staticmethod
@@ -200,6 +230,10 @@ class StorageOp(object):
     @staticmethod
     def log(data):
         return data.log()
+
+    @staticmethod
+    def sum(data, axis, keepdims):
+        return data.sum(axis, keepdims)
 
     @staticmethod
     def zeros(shape, device="cpu", dtype=np.float32):

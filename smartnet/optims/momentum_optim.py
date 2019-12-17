@@ -1,5 +1,6 @@
 from ..optim import SmartOptim
-import numpy as np
+from ..core.storage_op import StorageOp
+from collections import OrderedDict
 
 
 class SmartMomentumOptim(SmartOptim):
@@ -9,25 +10,27 @@ class SmartMomentumOptim(SmartOptim):
         v = v * momentum + dw
         w = w - lr * dw
     """
-    def __init__(self, name, trainable_parameters, lr=0.01, weight_decay=0, momentum=0.9):
-        super(SmartMomentumOptim, self).__init__(name, trainable_parameters)
+    def __init__(self, trainable_parameters, lr=0.01, weight_decay=0, momentum=0.9):
+        super(SmartMomentumOptim, self).__init__("momentum", trainable_parameters)
         self._lr = lr
         self._weight_decay = weight_decay
-        self._momentum_buffs = dict()
+        self._momentum_buffs = OrderedDict()
         self._momentum = momentum
 
     def step(self):
-        for value in self._trainable_parameters:
-            par = value["parameter"]
-            name = value["name"]
+        for name, par in self._trainable_parameters.items():
+            if not par.requires_grad:
+                continue
+            data = par.data
+            grad = par.grad
             if self._weight_decay != 0:
-                par.grad[:] = par.grad + par.data * self._weight_decay
+                par.update_grad(data * self._weight_decay)
 
             if name not in self._momentum_buffs.keys():
-                self._momentum_buffs[name] = np.zeros_like(par.grad)
+                self._momentum_buffs[name] = StorageOp.zeros_like(grad)
             momentum = self._momentum_buffs[name]
-            momentum[:] = self._momentum * momentum + par.grad
-            par.data[:] = par.data - self._lr * momentum
+            momentum.set_values(self._momentum * momentum + grad)
+            par.set_values(data - self._lr * momentum)
 
     def get_property(self):
         return {"lr": self._lr,

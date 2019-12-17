@@ -617,6 +617,7 @@ class MSEOperation(TwoInputsOperation):
 
     def _backward(self, input0, input1):
         if isinstance(input0, SmartTensor) and input0.requires_grad:
+            input0.make_grad()
             if isinstance(input1, SmartTensor):
                 storage = input0.data - input1.data
             else:
@@ -652,6 +653,7 @@ class CrossEntropyOperation(TwoInputsOperation):
 
     def _backward_soft_max(self, input0, input1):
         if isinstance(input0, SmartTensor) and input0.requires_grad:
+            input0.make_grad()
             if isinstance(input1, SmartTensor):
                 storage = self._soft_max_output - input1.data
             else:

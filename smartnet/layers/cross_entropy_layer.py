@@ -1,9 +1,9 @@
 # coding=utf-8
-from ..layer import SmartLayer
-from ..tensor import *
+from ..module import *
+from ..core.tensor_op import TensorOp
 
 
-class SmartCrossEntropyLayer(SmartLayer):
+class SmartCrossEntropyLayer(SmartModule):
     """
     # description：
         cross entropy with soft max layer.
@@ -26,38 +26,11 @@ class SmartCrossEntropyLayer(SmartLayer):
             _outputs[0]: shape of (1, ), loss, only one float entry
             _outputs[1]: shape of (m, C), soft max output y, saved for backward.
     """
-    def __init__(self, name, need_backward=True):
-        super(SmartCrossEntropyLayer, self).__init__(name, need_backward)
-        self._previous_inputs = 1
-        self._outside_inputs = 1
+    def __init__(self):
+        super(SmartCrossEntropyLayer, self).__init__("CrossEntropy")
 
-    def set_up_layer(self, inputs):
-        self._inputs = inputs
-        layer_input = self._inputs[0]  # shape of (m, C)
-        label = self._inputs[1]        # shape of (m, C)
-        if len(label.shape) != 2 or label.shape != layer_input.shape:
-            raise Exception("mse layer {} layer input shape {} and label shape "
-                            "{} does not match.".format(self._name, layer_input.shape, label.shape))
-        self._outputs = [SmartTensor(np.zeros((1,))), SmartTensor(np.zeros_like(layer_input))]
+    def forward(self, *inputs, **kwargs):
+        layer_input = inputs[0]
+        label = inputs[1]
 
-    def forward(self):
-        layer_input = self._inputs[0]
-        label = self._inputs[1]
-
-        soft_max_output = self._outputs[1]
-        loss = self._outputs[0]
-
-        exp_input = np.exp(layer_input.data)
-        sum_exp_input = np.sum(exp_input, axis=0)
-        soft_max_output.data[:] = exp_input / sum_exp_input
-
-        loss.data[0] = -np.sum(label * np.log(soft_max_output.data))
-
-    def backward(self):
-        layer_input = self._inputs[0]
-        label = self._inputs[1]
-
-        soft_max_output = self._outputs[1]
-        if layer_input.requires_grad:
-            layer_input.grad[:] = layer_input.grad + soft_max_output.data - label.data
-
+        return TensorOp.cross_entropy(layer_input, label)

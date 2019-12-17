@@ -1,5 +1,6 @@
 from ..optim import SmartOptim
-import numpy as np
+from ..core.storage_op import StorageOp
+from collections import OrderedDict
 
 
 class SmartAdamOptim(SmartOptim):
@@ -13,38 +14,40 @@ class SmartAdamOptim(SmartOptim):
 
         w = w - lr * vdw_correct / (sdw_correct + eps)**0.5
     """
-    def __init__(self, name, trainable_parameters, lr=0.01, weight_decay=0,
+    def __init__(self, trainable_parameters, lr=0.01, weight_decay=0,
                  momentum=0.9, beta=0.999, eps=1e-8):
-        super(SmartAdamOptim, self).__init__(name, trainable_parameters)
+        super(SmartAdamOptim, self).__init__("adam", trainable_parameters)
         self._lr = lr
         self._weight_decay = weight_decay
-        self._momentum_buffs = dict()
-        self._rmsprop_buffs = dict()
+        self._momentum_buffs = OrderedDict()
+        self._rmsprop_buffs = OrderedDict()
         self._momentum = momentum
         self._beta = beta
         self._eps = eps
         self._iterations = 1
 
     def step(self):
-        for value in self._trainable_parameters:
-            par = value["parameter"]
-            name = value["name"]
+        for name, par in self._trainable_parameters.items():
+            if not par.requires_grad:
+                continue
+            data = par.data
+            grad = par.grad
             if self._weight_decay != 0:
-                par.grad[:] = par.grad + par.data * self._weight_decay
+                par.set_values(data * self._weight_decay)
 
             if name not in self._momentum_buffs.keys():
-                self._momentum_buffs[name] = np.zeros_like(par.grad)
+                self._momentum_buffs[name] = StorageOp.zeros_like(grad)
             momentum = self._momentum_buffs[name]
-            momentum[:] = self._momentum * momentum + (1 - self._momentum) * par.grad
+            momentum.set_values(self._momentum * momentum + (1 - self._momentum) * grad)
             momentum_correct = momentum / (1 - self._momentum**self._iterations)
 
             if name not in self._rmsprop_buffs.keys():
-                self._rmsprop_buffs[name] = np.zeros_like(par.grad)
+                self._rmsprop_buffs[name] = StorageOp.zeros_like(grad)
             rmsprop = self._rmsprop_buffs[name]
-            rmsprop[:] = self._beta * rmsprop + (1 - self._beta) * par.grad**2
+            rmsprop.set_values(self._beta * rmsprop + (1 - self._beta) * grad**2)
             rmsprop_correct = rmsprop / (1 - self._beta**self._iterations)
 
-            par.data[:] = par.data - self._lr * momentum_correct / (rmsprop_correct + self._eps)**0.5
+            par.set_values(par.data - self._lr * momentum_correct / (rmsprop_correct + self._eps)**0.5)
 
     def get_property(self):
         return {"lr": self._lr,

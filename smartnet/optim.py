@@ -1,6 +1,6 @@
 # coding=utf-8
-from .layer import SmartLayer
-from .tensor import *
+from .layers import *
+from .core import *
 
 
 class SmartOptim(object):
@@ -12,9 +12,12 @@ class SmartOptim(object):
         raise NotImplementedError
 
     def zero_grad(self):
-        for value in self._trainable_parameters:
-            par = value["parameter"]
-            par.zero_grad()
+        for value in self._trainable_parameters.values():
+            value.zero_grad()
 
     def get_property(self):
         return dict()
+
+    @property
+    def name(self):
+        return self._name

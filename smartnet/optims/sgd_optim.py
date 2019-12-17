@@ -8,18 +8,21 @@ class SmartSGDOptim(SmartOptim):
         sgd optimization algorithm.
         w = w - lr * dw
     """
-    def __init__(self, name, trainable_parameters, lr=0.01, weight_decay=0):
-        super(SmartSGDOptim, self).__init__(name, trainable_parameters)
+    def __init__(self, trainable_parameters, lr=0.01, weight_decay=0):
+        super(SmartSGDOptim, self).__init__("sgd", trainable_parameters)
         self._lr = lr
         self._weight_decay = weight_decay
 
     def step(self):
-        for value in self._trainable_parameters:
-            par = value["parameter"]
+        for par in self._trainable_parameters.values():
+            if not par.requires_grad:
+                continue
+            data = par.data
+            grad = par.grad
             if self._weight_decay != 0:
-                par.grad[:] = par.grad + par.data * self._weight_decay
+                par.update_grad(data * self._weight_decay)
 
-            par.data[:] = par.data - self._lr * par.grad
+            par.set_values(data - self._lr * grad)
 
     def get_property(self):
         return {"lr": self._lr, "weight_decay": self._weight_decay}

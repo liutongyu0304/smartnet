@@ -1,5 +1,5 @@
 from ..optim import SmartOptim
-import numpy as np
+from ..core.storage_op import StorageOp
 
 
 class SmartRMSPropOptim(SmartOptim):
@@ -9,9 +9,9 @@ class SmartRMSPropOptim(SmartOptim):
         sdw = beta * sdw + (1 - beta) * dw
         w = w - lr * dw / (sdw + eps)**0.5
     """
-    def __init__(self, name, trainable_parameters, lr=0.01, weight_decay=0,
+    def __init__(self, trainable_parameters, lr=0.01, weight_decay=0,
                  beta=0.9, eps=1e-8):
-        super(SmartRMSPropOptim, self).__init__(name, trainable_parameters)
+        super(SmartRMSPropOptim, self).__init__("rmsprop", trainable_parameters)
         self._lr = lr
         self._weight_decay = weight_decay
         self._rmsprop_buffs = dict()
@@ -19,18 +19,20 @@ class SmartRMSPropOptim(SmartOptim):
         self._eps = eps
 
     def step(self):
-        for value in self._trainable_parameters:
-            par = value["parameter"]
-            name = value["name"]
+        for name, par in self._trainable_parameters.items():
+            if not par.requires_grad:
+                continue
+            data = par.data
+            grad = par.grad
             if self._weight_decay != 0:
-                par.grad[:] = par.grad + par.data * self._weight_decay
+                par.update_grad(data * self._weight_decay)
 
             if name not in self._rmsprop_buffs.keys():
-                self._rmsprop_buffs[name] = np.zeros_like(par.grad)
+                self._rmsprop_buffs[name] = StorageOp.zeros_like(grad)
             rmsprop = self._rmsprop_buffs[name]
 
-            rmsprop[:] = self._beta * rmsprop + (1 - self._beta) * par.grad**2
-            par.data[:] = par.data - self._lr * par.grad / (rmsprop + self._eps)**0.5
+            rmsprop.set_values(self._beta * rmsprop + (1 - self._beta) * grad**2)
+            par.set_values(data - self._lr * grad / (rmsprop + self._eps)**0.5)
 
     def get_property(self):
         return {"lr": self._lr,

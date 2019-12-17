@@ -1,7 +1,6 @@
 # coding=utf-8
 from .tensor import *
 import queue
-import sys
 
 
 class SmartAutoGrad(object):
@@ -55,7 +54,7 @@ class SmartAutoGrad(object):
 
     def clear_tensors(self):
         for tensor in self._tensors:
-            if not tensor.is_leaf:
+            if not tensor.is_leaf and tensor.requires_grad:
                 self._tensors.remove(tensor)
                 del tensor
 

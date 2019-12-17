@@ -3,3 +3,4 @@
 smartnet/__pycache__/*
 smartnet/optims/__pycache__/*
 smartnet/layers/__pycache__/*
+smartnet/core/__pycache__/*

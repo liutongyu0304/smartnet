@@ -1,6 +1,6 @@
 # coding=utf-8
 import numpy as np
-from .storage import *
+from .storage_op import *
 
 
 class SmartTensor(object):
@@ -19,11 +19,18 @@ class SmartTensor(object):
             raise Exception("non leaf tensor can not be set requires_grad.")
         self._requires_grad = requires_grad
 
-    def update(self, lr):
+    def update_data(self, lr):
         assert self._requires_grad
         if self._data is None or self._grad is None:
             return
         self._data = self._data - lr * self._grad
+
+    def update_grad(self, grad):
+        # grad should be SmartStorage
+        if self._grad is not None:
+            assert isinstance(grad, SmartStorage)
+            # assert grad.shape == self._grad.shape
+            self._grad = self._grad + grad
     
     def make_grad(self):
         if self._grad is None:
@@ -45,8 +52,16 @@ class SmartTensor(object):
     def set_op(self, op):
         self._op = op
 
+    def set_values(self, data):
+        # this will change tensor data without changing grad,
+        # do not use it except constucting a new tensor
+        if isinstance(data, SmartTensor):
+            self._data.set_values(data.data)
+        else:
+            self._data.set_values(data)
+
     def detach(self):
-        return self._data
+        return self._data.data
 
     def reshape(self, shape):
         from .op import ReshapeOperation
@@ -126,6 +141,18 @@ class SmartTensor(object):
         from .op import LogOperation
         return LogOperation()(self)
 
+    def to_cpu(self):
+        self._data.to_cpu()
+        if self._grad is not None:
+            self._grad.to_cpu()
+        return self
+
+    def to_gpu(self):
+        self._data.to_gpu()
+        if self._grad is not None:
+            self._grad.to_gpu()
+        return self
+
     @property
     def requires_grad(self):
         return self._requires_grad
@@ -165,67 +192,3 @@ class SmartTensor(object):
     @property
     def size(self):
         return self._data.size
-
-
-class TensorOp(object):
-    @staticmethod
-    def reshape(tensor, shape):
-        return tensor.reshape(shape)
-
-    @staticmethod
-    def transpose(tensor):
-        return tensor.transpose()
-
-    @staticmethod
-    def add(left, right):
-        return left + right
-
-    @staticmethod
-    def minus(left, right):
-        return left - right
-
-    @staticmethod
-    def mul(left, right):
-        return left * right
-
-    @staticmethod
-    def divide(left, right):
-        return left / right
-
-    @staticmethod
-    def matmul(left, right):
-        return left.matmul(right)
-
-    @staticmethod
-    def exp(tensor):
-        return tensor.exp()
-
-    @staticmethod
-    def log(tensor):
-        return tensor.log()
-
-    @staticmethod
-    def zeros(shape, device="cpu", dtype=np.float32, requires_grad=False):
-        tensor = SmartTensor(shape, device=device, dtype=dtype, requires_grad=requires_grad)
-        tensor.data._data[:] = 0.0
-        return tensor
-
-    @staticmethod
-    def zeros_like(tensor):
-        return SmartTensor(tensor.shape, device=tensor.device, dtype=tensor.dtype, requires_grad=tensor.requires_grad)
-
-    @staticmethod
-    def ones(shape, device="cpu", dtype=np.float32, requires_grad=False):
-        tensor = SmartTensor(shape, device=device, dtype=dtype, requires_grad=requires_grad)
-        tensor.data._data[:] = 1.0
-        return tensor
-
-    @staticmethod
-    def ones_like(tensor):
-        return TensorOp.ones(tensor.shape, device=tensor.device, dtype=tensor.dtype, requires_grad=tensor.requires_grad)
-
-    @staticmethod
-    def random(shape, device="cpu", dtype=np.float32, requires_grad=False):
-        tensor = SmartTensor(shape, device=device, dtype=dtype, requires_grad=requires_grad)
-        tensor.data._data[:] = random_on_device(shape, device=device, dtype=dtype)
-        return tensor

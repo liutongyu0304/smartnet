@@ -1,8 +1,7 @@
-from ..optim import SmartOptim
-from ..core.storage_op import StorageOp
+from ..optim import Optim
 
 
-class SmartRMSPropOptim(SmartOptim):
+class RMSPropOptim(Optim):
     """
     # description:
         root mean square prop algorithm.
@@ -11,7 +10,7 @@ class SmartRMSPropOptim(SmartOptim):
     """
     def __init__(self, trainable_parameters, lr=0.01, weight_decay=0,
                  beta=0.9, eps=1e-8):
-        super(SmartRMSPropOptim, self).__init__("rmsprop", trainable_parameters)
+        super(RMSPropOptim, self).__init__("rmsprop", trainable_parameters)
         self._lr = lr
         self._weight_decay = weight_decay
         self._rmsprop_buffs = dict()
@@ -28,10 +27,10 @@ class SmartRMSPropOptim(SmartOptim):
                 par.update_grad(data * self._weight_decay)
 
             if name not in self._rmsprop_buffs.keys():
-                self._rmsprop_buffs[name] = StorageOp.zeros_like(grad)
+                self._rmsprop_buffs[name] = par.pkg.zeros_like(grad)
             rmsprop = self._rmsprop_buffs[name]
 
-            rmsprop.set_values(self._beta * rmsprop + (1 - self._beta) * grad**2)
+            rmsprop[:] = self._beta * rmsprop + (1 - self._beta) * grad**2
             par.set_values(data - self._lr * grad / (rmsprop + self._eps)**0.5)
 
     def get_property(self):

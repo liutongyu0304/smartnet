@@ -1,4 +1,6 @@
-from smartnet import *
+import smartnet as sn
+import smartnet.optims as optims
+import smartnet.layers as layers
 
 
 """
@@ -18,42 +20,45 @@ optim_options = {"lr": 0.01, "weight_decay": 0,
 
 class DataFactory(object):
     def __init__(self, features, samples):
-        self.initial_x = SmartTensor(np.random.rand(samples, features), requires_grad=False)
-        self.initial_y = SmartTensor(np.zeros((samples, 1)), requires_grad=False)
+        self.initial_x = sn.random((samples, features), requires_grad=False)
+        self.initial_y = sn.random((samples, 1), requires_grad=False)
 
     def create_y_by_linear(self, gain, bias):
         self.initial_y.data[:] = np.matmul(self.initial_x.data, gain * np.ones((self.initial_x.shape[1], 1))) + bias
 
 
-def create_net(net_nodes, x, y):
-    net_nodes = [x.shape[1]] + net_nodes + [1]
-    net = SmartNet()
-    net.add_layer(SmartDataLayer("x"), x)
-    for i in range(len(net_nodes)-1):
-        layer = SmartSigmoidLayer("sigmoid" + str(i))
-        net.add_layer(layer)
-        layer = SmartLinearLayer("linear" + str(i), net_nodes[i], net_nodes[i+1])
-        net.add_layer(layer)
-    net.add_layer(SmartMSELayer("mse"), y)
-    return net
+def create_net(features):
+    class Net(sn.Module):
+        def __init__(self, features):
+            super(Net, self).__init__()
+            self.l1 = layers.LinearLayer(features, 2*features)
+            self.a1 = layers.ReluLayer()
+            self.l2 = layers.LinearLayer(2*features, 1)
+
+        def forward(self, x):
+            x = self.l1(x)
+            x = self.a1(x)
+            x = self.l2(x)
+            return x
+    return Net(features)
 
 
 def create_optims(name, net, options):
     if name == "sgd":
-        return SmartSGDOptim(name, net.trainable_parameters(),
-                             lr=options["lr"], weight_decay=options["weight_decay"])
+        return optims.SGDOptim(net.named_parameters(),
+                              lr=options["lr"], weight_decay=options["weight_decay"])
     elif name == "momentum":
-        return SmartMomentumOptim(name, net.trainable_parameters(),
-                                  lr=options["lr"], weight_decay=options["weight_decay"],
-                                  momentum=options["momentum"])
+        return optims.MomentumOptim(net.named_parameters(),
+                                   lr=options["lr"], weight_decay=options["weight_decay"],
+                                   momentum=options["momentum"])
     elif name == "rmsprop":
-        return SmartRMSPropOptim(name, net.trainable_parameters(),
+        return optims.RMSPropOptim(net.named_parameters(),
                                   lr=options["lr"], weight_decay=options["weight_decay"],
                                   beta=options["beta"])
     elif name == "adam":
-        return SmartAdamOptim(name, net.trainable_parameters(),
-                                  lr=options["lr"], weight_decay=options["weight_decay"],
-                                  beta=options["beta"], momentum=options["momentum"])
+        return optims.AdamOptim(net.named_parameters(),
+                               lr=options["lr"], weight_decay=options["weight_decay"],
+                               beta=options["beta"], momentum=options["momentum"])
 
 
 def linear_regression_example():
@@ -64,20 +69,23 @@ def linear_regression_example():
     nsamples = 100
     nfeatures = 4
     periods = 100
-    hidden_nodes = [5, 10]
     loss = np.zeros((periods, 4))
 
     df = DataFactory(nfeatures, nsamples)
     df.create_y_by_linear(0.1, 0.05)
 
     for i, name in enumerate(["sgd", "momentum", "rmsprop", "adam"]):
-        net = create_net(hidden_nodes, df.initial_x, df.initial_y)
+        net = create_net(nfeatures)
         opt = create_optims(name, net, optim_options)
+        net_loss = layers.MSELayer()
+
         for j in range(periods):
-            net.zero_grad()
-            loss[j, i] = net.forward()
-            net.backward()
+            opt.zero_grad()
+            y = net(df.initial_x)
+            l = net_loss(y, df.initial_y)
+            l.backward()
             opt.step()
+            loss[j, i] = l.data[0, 0]
 
     d = pd.DataFrame(loss, columns=["sgd", "momentum", "rmsprop", "adam"])
     d.plot()

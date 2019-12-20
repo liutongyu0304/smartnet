@@ -1,11 +1,48 @@
 # coding=utf-8
-import numpy as np
-from .storage_op import *
+from .util import *
 
 
-class SmartTensor(object):
-    def __init__(self, shape, device="cpu", dtype=np.float32, requires_grad=False):
-        self._data = SmartStorage(shape, device=device, dtype=dtype)
+class Tensor(object):
+    """
+    # description:
+        tensor class based on numpy in cpu and cupy in gpu .
+        tensor is the base of auto-grad and deep learning algorithm.
+        conditions that need/keep gradient of tensor:
+        1.any tensor that requires_grad is true needs gradient to be computed
+        2.for non-leaf tensor, if any input that requires_grad is true,
+          the non-leaf tensor's gradient should be computed.
+        3.non-leaf's gradient does not retain unless its retain_grad(default false) is true.
+    # members:
+        data: np.ndarray or cp.ndarray
+            values of tensor, use detch() or data() function to get data of tensor without tracking,
+            but this is dangerous because no gradient is computed.
+        grad: np.ndarray or cp.ndarray
+            gradient of tensor, dimensions must be the same with data
+        is_leaf: bool
+            whether tensor is leaaf or not
+        requires_grad: bool
+            whether tensor requires grad, default false
+        retain_grad: bool
+            whether retain gradient after backward for non-leaf tensor
+        op: Operation
+            operation function that make the tensor, op is none for leaf tensor.
+            op is very important for backward, any op should remember its inputs,
+            doing forward and backward operation.
+        pkg: generator package of data, numpy with device cpu or cupy with device gpu
+    """
+    def __init__(self, shape=None, data=None, device="cpu", dtype=np.float32, requires_grad=False):
+        if data is None and shape is None:
+            raise ValueError("either shape or data should be not None")
+        if data is None:
+            self._device = device
+            self._data = self.pkg.zeros(shape, dtype=dtype)
+        else:
+            if isinstance(data, cp.ndarray):
+                self._data = data
+                self._device = "cuda"
+            else:
+                self._device = "cpu"
+                self._data = self.pkg.asarray(data)
         self._grad = None
         self._requires_grad = requires_grad
         self._is_leaf = True
@@ -19,6 +56,33 @@ class SmartTensor(object):
             raise Exception("non leaf tensor can not be set requires_grad.")
         self._requires_grad = requires_grad
 
+    def _set_leaf(self, is_leaf=True):
+        """
+        # description:
+            set leaf or non leaf tensor, for generated tensor that op is not None
+            users should not use this function.
+        """
+        self._is_leaf = is_leaf
+
+    def set_retain_grad(self):
+        """
+        # description:
+            set retain grad property for non leaf tensor, this function does not work
+            for leaf tensor.
+        """
+        self._retain_grad = True
+
+    def _set_op(self, op):
+        self._op = op
+
+    def set_values(self, data):
+        # this will change tensor data without changing grad,
+        # do not use it except constucting a new tensor
+        if isinstance(data, Tensor):
+            self._data[:] = data.data
+        else:
+            self._data[:] = data
+
     def update_data(self, lr):
         assert self._requires_grad
         if self._data is None or self._grad is None:
@@ -26,59 +90,56 @@ class SmartTensor(object):
         self._data = self._data - lr * self._grad
 
     def update_grad(self, grad):
-        # grad should be SmartStorage
         if self._grad is not None:
-            assert isinstance(grad, SmartStorage)
-            # assert grad.shape == self._grad.shape
             self._grad = self._grad + grad
     
     def make_grad(self):
         if self._grad is None:
-            self._grad = StorageOp.zeros_like(self._data)
+            self._grad = self.pkg.zeros_like(self._data)
 
     def zero_grad(self):
         if self._grad is not None:
-            self._grad.set_zero()
+            self._grad[:] = 0.0
 
     def clear_grad(self):
         self._grad = None
-    
-    def set_leaf(self, is_leaf=True):
-        self._is_leaf = is_leaf
-
-    def set_retain_grad(self):
-        self._retain_grad = True
-
-    def set_op(self, op):
-        self._op = op
-
-    def set_values(self, data):
-        # this will change tensor data without changing grad,
-        # do not use it except constucting a new tensor
-        if isinstance(data, SmartTensor):
-            self._data.set_values(data.data)
-        else:
-            self._data.set_values(data)
 
     def detach(self):
-        return self._data.data
+        return self._data
 
-    def reshape(self, shape):
-        from .op import ReshapeOperation
-        return ReshapeOperation()(self, shape)
-    
-    def transpose(self):
-        from .op import TransposeOperation
-        return TransposeOperation()(self)
+    def item(self):
+        if self.size != 1:
+            raise RuntimeError("tensor can only convert to a python scaler when its size=1")
+        return self._data.item()
 
-    def sum(self, axis=None, keepdims=False):
-        from .op import SumOperation
-        return SumOperation(axis, keepdims)(self)
+    def to_cpu(self):
+        self._data = to_cpu(self._data)
+        if self._grad is not None:
+            self._grad = to_cpu(self._grad)
+        return self
+
+    def to_gpu(self):
+        self._data = to_gpu(self._data)
+        if self._grad is not None:
+            self._grad = to_gpu(self._grad)
+        return self
 
     def backward(self, retain_graph=False):
         from .graph import get_graph
         get_graph().auto_grad(self, retain_graph=retain_graph)
-    
+
+    def __getitem__(self, item):
+        from .op import AsStrideOption
+        return AsStrideOption()(self, item)
+
+    def __str__(self):
+        s = "Tensor shape: {}, device: {}, dtype: {},\n" \
+            "data: {}\n".format(self.shape, self.device, self.dtype, self._data)
+        return s
+
+    def __repr__(self):
+        return self.__str__()
+
     def __neg__(self):
         from .op import NegativeOperation
         return NegativeOperation()(self)
@@ -119,15 +180,17 @@ class SmartTensor(object):
         from .op import PowOperation
         return PowOperation()(self, right)
 
-    def __str__(self):
-        grad = self._grad.data if self._grad is not None else self._grad
-        s = "SmartTensor shape: {}, device: {}, dtype: {},\n" \
-            "data: {}\ngrad: {}".format(self.shape, self.device,
-                                        self.dtype, self._data.data, grad)
-        return s
+    def reshape(self, shape):
+        from .op import ReshapeOperation
+        return ReshapeOperation()(self, shape)
 
-    def __repr__(self):
-        return self.__str__()
+    def transpose(self):
+        from .op import TransposeOperation
+        return TransposeOperation()(self)
+
+    def sum(self, axis=None, keepdims=True):
+        from .op import SumOperation
+        return SumOperation(axis, keepdims)(self)
 
     def matmul(self, right):
         from .op import MatmulOperation
@@ -140,18 +203,6 @@ class SmartTensor(object):
     def log(self):
         from .op import LogOperation
         return LogOperation()(self)
-
-    def to_cpu(self):
-        self._data.to_cpu()
-        if self._grad is not None:
-            self._grad.to_cpu()
-        return self
-
-    def to_gpu(self):
-        self._data.to_gpu()
-        if self._grad is not None:
-            self._grad.to_gpu()
-        return self
 
     @property
     def requires_grad(self):
@@ -171,7 +222,7 @@ class SmartTensor(object):
 
     @property
     def device(self):
-        return self._data.device
+        return self._device
 
     @property
     def dtype(self):
@@ -192,3 +243,7 @@ class SmartTensor(object):
     @property
     def size(self):
         return self._data.size
+
+    @property
+    def pkg(self):
+        return get_package_by_device(self._device)

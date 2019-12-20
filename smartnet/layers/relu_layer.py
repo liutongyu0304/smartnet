@@ -1,13 +1,13 @@
 # coding=utf-8
 from ..module import *
-from ..core.tensor_op import TensorOp
+from ..core import function as F
 
 
-class SmartReluLayer(SmartModule):
+class ReluLayer(Module):
     def __init__(self):
-        super(SmartReluLayer, self).__init__("ReluLayer")
+        super(ReluLayer, self).__init__("ReluLayer")
 
     def forward(self, *inputs, **kwargs):
         layer_input = inputs[0]
         # a(n) = max(0, z(n))
-        return TensorOp.relu(layer_input)
+        return F.relu(layer_input)

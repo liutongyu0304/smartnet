@@ -1,9 +1,9 @@
 # coding=utf-8
-from .core.tensor_op import *
+from .core import Tensor
 from collections import OrderedDict
 
 
-class SmartModule(object):
+class Module(object):
     def __init__(self, name=""):
         self._parameters = OrderedDict()
         self._modules = OrderedDict()
@@ -11,11 +11,11 @@ class SmartModule(object):
         self._name = name
 
     def __setattr__(self, key, value):
-        if isinstance(value, SmartModule):
+        if isinstance(value, Module):
             if key in self._modules:
                 del self._modules[key]
             self._modules[key] = value
-        elif isinstance(value, SmartTensor):
+        elif isinstance(value, Tensor):
             if key in self._parameters:
                 del self._parameters[key]
             self._parameters[key] = value

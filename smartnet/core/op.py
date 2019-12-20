@@ -1,12 +1,14 @@
 # coding=utf-8
-from .tensor import *
+from .util import *
+from .tensor import Tensor
 
 
-class SmartOperation(object):
+class Operation(object):
     def __init__(self, name):
         self._name = name
         self._inputs = list()
         self._output = None
+        self._pkg = None
     
     def forward(self, *args):
         result, message = self._check_inputs(*args)
@@ -20,15 +22,39 @@ class SmartOperation(object):
     def _check_inputs(self, *args):
         return True, ""
 
+    def _check_input_device(self, *args):
+        def get_tensors():
+            tensors = []
+            for arg in args:
+                if isinstance(arg, Tensor):
+                    tensors.append(arg)
+                elif isinstance(arg, (list, tuple)):
+                    for t in arg:
+                        if isinstance(t, Tensor):
+                            tensors.append(t)
+                elif isinstance(arg, dict):
+                    for t in arg.values():
+                        if isinstance(t, Tensor):
+                            tensors.append(t)
+            return tensors
+
+        tensors = get_tensors()
+        for t in tensors:
+                if self._pkg is None:
+                    self._pkg = t.pkg
+                else:
+                    if self._pkg != t.pkg:
+                        raise RuntimeError("all inputs should have same device")
+
     def __call__(self, *args):
         self._output = self.forward(*args)
         for t in self._inputs:
-            if isinstance(t, SmartTensor):
+            if isinstance(t, Tensor):
                 if t.requires_grad:
                     self._output.set_requires_grad(True)
                     break
-        self._output.set_op(self)
-        self._output.set_leaf(False)
+        self._output._set_op(self)
+        self._output._set_leaf(False)
         return self._output
 
     @property
@@ -44,35 +70,33 @@ class SmartOperation(object):
         return self._output
 
 
-class ReshapeOperation(SmartOperation):
+class ReshapeOperation(Operation):
     def __init__(self):
         super(ReshapeOperation, self).__init__("ReshapeOperation")
     
     def forward(self, *args):
         super(ReshapeOperation, self).forward(*args)
-        shape = self._inputs[0]
-        output = SmartTensor(shape, device=self._inputs[0].device,
-                             dtype=self._inputs[0].dtype,
-                             requires_grad=self._inputs[0].requires_grad)
-        storage = self._inputs[0].data.reshape(shape)
-        output.set_values(storage)
+        shape = self._inputs[1]
+        data = self._inputs[0].data.reshape(shape)
+        output = Tensor(data=data, requires_grad=self._inputs[0].requires_grad)
         return output
     
     def backward(self):
         if not self._inputs[0].requires_grad:
             return
         self._inputs[0].make_grad()
-        storage = self._output.grad.reshape(self._inputs[0].shape)
-        self._inputs[0].update_grad(storage)
+        grad = self._output.grad.reshape(self._inputs[0].shape)
+        self._inputs[0].update_grad(grad)
 
     def _check_inputs(self, *args):
+        self._check_input_device(*args)
         self._inputs = args
         message = ""
         if len(args) != 2:
             message = "{} should have 2 inputs".format(self._name)
             return False, message
-        if not isinstance(self._inputs[0], SmartTensor):
-            message = "{} first input's type should be SmartTensor".format(self._name)
+        if not isinstance(self._inputs[0], Tensor):
+            message = "{} first input's type should be Tensor".format(self._name)
             return False, message
         if not isinstance(self._inputs[1], tuple):
             message = "{} shape should be tuple".format(self._name)
@@ -80,17 +104,14 @@ class ReshapeOperation(SmartOperation):
         return True, message
 
 
-class TransposeOperation(SmartOperation):
+class TransposeOperation(Operation):
     def __init__(self):
         super(TransposeOperation, self).__init__("TransposeOperation")
     
     def forward(self, *args):
         super(TransposeOperation, self).forward(*args)
-        storage = self._inputs[0].data.transpose()
-        output = SmartTensor(storage.shape, device=self._inputs[0].device,
-                             dtype=self._inputs[0].dtype,
-                             requires_grad=self._inputs[0].requires_grad)
-        output.set_values(storage)
+        data = self._inputs[0].data.transpose()
+        output = Tensor(data=data, requires_grad=self._inputs[0].requires_grad)
         return output
     
     def backward(self):
@@ -101,27 +122,26 @@ class TransposeOperation(SmartOperation):
         self._inputs[0].update_grad(storage)
 
     def _check_inputs(self, *args):
+        self._check_input_device(*args)
         self._inputs = args
         message = ""
         if len(args) != 1:
             message = "{} should have 1 inputs".format(self._name)
             return False, message
-        if not isinstance(self._inputs[0], SmartTensor):
-            message = "{} to be transposed should be SmartTensor".format(self._name)
+        if not isinstance(self._inputs[0], Tensor):
+            message = "{} to be transposed should be Tensor".format(self._name)
             return False, message
         return True, message
 
 
-class NegativeOperation(SmartOperation):
+class NegativeOperation(Operation):
     def __init__(self):
         super(NegativeOperation, self).__init__("NegativeOperation")
     
     def forward(self, *args):
         super(NegativeOperation, self).forward(*args)
-        output = SmartTensor(self._inputs[0].shape, device=self._inputs[0].device,
-                             dtype=self._inputs[0].dtype,
-                             requires_grad=self._inputs[0].requires_grad)
-        output.set_values(-self._inputs[0].data)
+        output = Tensor(data=-self._inputs[0].data,
+                        requires_grad=self._inputs[0].requires_grad)
         return output
     
     def backward(self):
@@ -131,58 +151,57 @@ class NegativeOperation(SmartOperation):
         self._inputs[0].update_grad(-self._output.grad)
 
     def _check_inputs(self, *args):
+        self._check_input_device(*args)
         self._inputs = args
         message = ""
         if len(args) != 1:
             message = "{} should have 1 inputs".format(self._name)
             return False, message
-        if not isinstance(self._inputs[0], SmartTensor):
-            message = "{} to be transposed should be SmartTensor".format(self._name)
+        if not isinstance(self._inputs[0], Tensor):
+            message = "{} to be transposed should be Tensor".format(self._name)
             return False, message
         return True, message
 
 
-class TwoInputsOperation(SmartOperation):
+class TwoInputsOperation(Operation):
     def __init__(self, name):
         super(TwoInputsOperation, self).__init__(name)
 
     def forward(self, *args):
         super(TwoInputsOperation, self).forward(*args)
         requires_grad = False
-        if isinstance(self._inputs[0], SmartTensor):
+        if isinstance(self._inputs[0], Tensor):
             input0 = self._inputs[0].data
             requires_grad = requires_grad and self._inputs[0].requires_grad
         else:
             input0 = self._inputs[0]
 
-        if isinstance(self._inputs[1], SmartTensor):
+        if isinstance(self._inputs[1], Tensor):
             input1 = self._inputs[1].data
             requires_grad = requires_grad and self._inputs[1].requires_grad
         else:
             input1 = self._inputs[1]
 
-        storage = self._operation(input0, input1)
-        output = SmartTensor(storage.shape, device=storage.device,
-                             dtype=storage.dtype,
-                             requires_grad=requires_grad)
-        output.set_values(storage)
+        data = self._operation(input0, input1)
+        output = Tensor(data=data, requires_grad=requires_grad)
         return output
 
     def _operation(self, input0, input1):
-        # obviously either input0 or input1 must be SmartStorage
+        # obviously either input0 or input1 must be ndarray
         raise NotImplementedError
 
     def backward(self):
         raise NotImplementedError
 
     def _check_inputs(self, *args):
+        self._check_input_device(*args)
         self._inputs = args
         message = ""
         if len(args) != 2:
             message = "{} should have 2 inputs".format(self._name)
             return False, message
-        if not (isinstance(self._inputs[0], SmartTensor) or isinstance(self._inputs[1], SmartTensor)):
-            message = "{} should have at least one SmartTensor".format(self._name)
+        if not (isinstance(self._inputs[0], Tensor) or isinstance(self._inputs[1], Tensor)):
+            message = "{} should have at least one Tensor".format(self._name)
             return False, message
         return True, message
 
@@ -199,7 +218,7 @@ class AddOperation(TwoInputsOperation):
         self._backward(self._inputs[1])
 
     def _backward(self, input0):
-        if isinstance(input0, SmartTensor) and input0.requires_grad:
+        if isinstance(input0, Tensor) and input0.requires_grad:
             input0.make_grad()
             if input0.shape == self._output.shape:
                 input0.update_grad(self._output.grad)
@@ -222,7 +241,7 @@ class SubOperation(TwoInputsOperation):
             self._backward(self._inputs[1], left=False)
 
     def _backward(self, input0, left=True):
-        if isinstance(input0, SmartTensor) and input0.requires_grad:
+        if isinstance(input0, Tensor) and input0.requires_grad:
             input0.make_grad()
             if input0.shape == self._output.shape:
                 if input0.grad is not None:
@@ -254,23 +273,23 @@ class MulOperation(TwoInputsOperation):
     def _backward(self, input0, input1):
         # input0 * input1
         # input0.grad
-        if isinstance(input0, SmartTensor) and input0.requires_grad:
+        if isinstance(input0, Tensor) and input0.requires_grad:
             input0.make_grad()
-            data = input0.grad.data
-            if isinstance(input1, SmartTensor):
-                storage = self._output.grad * input1.data
+            grad = input0.grad
+            if isinstance(input1, Tensor):
+                data = self._output.grad * input1.data
             else:
-                storage = self._output.grad * input1
-            if data.shape != storage.data.shape:
+                data = self._output.grad * input1
+            if grad.shape != data.shape:
                 # for broadcast
                 reduce_ind = 0
-                for i in range(len(data.shape)):
-                    if data.shape[i] != storage.data.shape[i]:
+                for i in range(len(grad.shape)):
+                    if grad.shape[i] != data.shape[i]:
                         reduce_ind = i
                         break
-                input0.update_grad(storage.sum(axis=reduce_ind, keepdims=True))
+                input0.update_grad(self._pkg.sum(data, axis=reduce_ind, keepdims=True))
             else:
-                input0.update_grad(storage)
+                input0.update_grad(data)
 
 
 class DivideOperation(TwoInputsOperation):
@@ -287,44 +306,44 @@ class DivideOperation(TwoInputsOperation):
     def _backward_left(self, input0, input1):
         # input0 / input1
         # input0.grad
-        if isinstance(input0, SmartTensor) and input0.requires_grad:
+        if isinstance(input0, Tensor) and input0.requires_grad:
             input0.make_grad()
-            data = input0.grad.data
-            if isinstance(input1, SmartTensor):
-                storage = self._output.grad / input1.data
+            grad = input0.grad
+            if isinstance(input1, Tensor):
+                data = self._output.grad / input1.data
             else:
-                storage = self._output.grad / input1
-            if data.shape != storage.data.shape:
+                data = self._output.grad / input1
+            if grad.shape != data.shape:
                 # for broadcast
                 reduce_ind = 0
-                for i in range(len(data.shape)):
-                    if data.shape[i] != storage.data.shape[i]:
+                for i in range(len(grad.shape)):
+                    if grad.shape[i] != data.shape[i]:
                         reduce_ind = i
                         break
-                input0.update_grad(storage.sum(axis=reduce_ind, keepdims=True))
+                input0.update_grad(self._pkg.sum(data, axis=reduce_ind, keepdims=True))
             else:
-                input0.update_grad(storage)
+                input0.update_grad(data)
 
     def _backward_right(self, input0, input1):
         # input0 / input1
         # input1.grad
-        if isinstance(input1, SmartTensor) and input1.requires_grad:
+        if isinstance(input1, Tensor) and input1.requires_grad:
             input1.make_grad()
-            data = input1.grad.data
-            if isinstance(input0, SmartTensor):
-                storage = self._output.grad * input0.data / input1.data ** 2
+            grad = input1.grad
+            if isinstance(input0, Tensor):
+                data = self._output.grad * input0.data / input1.data ** 2
             else:
-                storage = self._output.grad * input0 / input1.data ** 2
-            if data.shape != storage.data.shape:
+                data = self._output.grad * input0 / input1.data ** 2
+            if grad.shape != data.shape:
                 # for broadcast
                 reduce_ind = 0
-                for i in range(len(data.shape)):
-                    if data.shape[i] != storage.data.shape[i]:
+                for i in range(len(grad.shape)):
+                    if grad.shape[i] != data.shape[i]:
                         reduce_ind = i
                         break
-                input1.update_grad(storage.sum(axis=reduce_ind, keepdims=True))
+                input1.update_grad(data.sum(axis=reduce_ind, keepdims=True))
             else:
-                input1.update_grad(storage)
+                input1.update_grad(data)
 
 
 class MatmulOperation(TwoInputsOperation):
@@ -332,7 +351,7 @@ class MatmulOperation(TwoInputsOperation):
         super(MatmulOperation, self).__init__("MatmulOperation")
     
     def _operation(self, input0, input1):
-        return input0.matmul(input1)
+        return self._pkg.matmul(input0, input1)
 
     def backward(self):
         self._backward_left(self._inputs[0], self._inputs[1])
@@ -341,37 +360,34 @@ class MatmulOperation(TwoInputsOperation):
     def _backward_left(self, input0, input1):
         # input.matmul(input1)
         # input.grad
-        if isinstance(input0, SmartTensor) and input0.requires_grad:
+        if isinstance(input0, Tensor) and input0.requires_grad:
             input0.make_grad()
-            if isinstance(input1, SmartTensor):
-                storage = self._output.grad.matmul(input1.data.transpose())   
+            if isinstance(input1, Tensor):
+                data = self._pkg.matmul(self._output.grad, input1.data.transpose())
             else:
-                storage = self._output.grad.matmul(input1.data.transpose())
-            input0.update_grad(storage)
+                data = self._pkg.matmul(self._output.grad, input1.transpose())
+            input0.update_grad(data)
 
     def _backward_right(self, input0, input1):
         # input.matmul(input1)
         # input1.grad
-        if isinstance(input1, SmartTensor) and input1.requires_grad:
+        if isinstance(input1, Tensor) and input1.requires_grad:
             input1.make_grad()
-            if isinstance(input0, SmartTensor):
-                storage = input0.data.transpose().matmul(self._output.grad)
+            if isinstance(input0, Tensor):
+                data = self._pkg.matmul(input0.data.transpose(), self._output.grad)
             else:
-                storage = input0.transpose().matmul(self._output.grad)
-            input1.update_grad(storage)
+                data = self._pkg.matmul(input0.transpose(), self._output.grad)
+            input1.update_grad(data)
 
 
-class PowOperation(SmartOperation):
+class PowOperation(Operation):
     def __init__(self):
         super(PowOperation, self).__init__("PowOperation")
 
     def forward(self, *args):
         super(PowOperation, self).forward(*args)
-        output = SmartTensor(self._inputs[0].shape, device=self._inputs[0].device,
-                             dtype=self._inputs[0].dtype,
-                             requires_grad=self._inputs[0].requires_grad)
-        storage = self._inputs[0].data**self._inputs[1]
-        output.set_values(storage)
+        data = self._inputs[0].data ** self._inputs[1]
+        output = Tensor(data=data, requires_grad=self._inputs[0].requires_grad)
         return output
 
     def backward(self):
@@ -379,17 +395,18 @@ class PowOperation(SmartOperation):
             return
         input0 = self._inputs[0]
         input0.make_grad()
-        storage = self._output.grad * self._inputs[1] * self._inputs[0].data**(self._inputs[1] - 1)
-        input0.update_grad(storage)
+        grad = self._output.grad * self._inputs[1] * self._inputs[0].data**(self._inputs[1] - 1)
+        input0.update_grad(grad)
 
     def _check_inputs(self, *args):
+        self._check_input_device(*args)
         self._inputs = args
         message = ""
         if len(args) != 2:
             message = "{} should have 2 inputs".format(self._name)
             return False, message
-        if not isinstance(self._inputs[0], SmartTensor):
-            message = "{} first input's type should be SmartTensor".format(self._name)
+        if not isinstance(self._inputs[0], Tensor):
+            message = "{} first input's type should be Tensor".format(self._name)
             return False, message
         if "int" not in str(type(self._inputs[1])) and "float" not in str(type(self._inputs[1])):
             message = "{} second input's type should be int/float".format(self._name)
@@ -397,17 +414,14 @@ class PowOperation(SmartOperation):
         return True, message
 
 
-class ExpOperation(SmartOperation):
+class ExpOperation(Operation):
     def __init__(self):
         super(ExpOperation, self).__init__("ExpOperation")
 
     def forward(self, *args):
         super(ExpOperation, self).forward(*args)
-        output = SmartTensor(self._inputs[0].shape, device=self._inputs[0].device,
-                             dtype=self._inputs[0].dtype,
-                             requires_grad=self._inputs[0].requires_grad)
-        storage = self._inputs[0].data.exp()
-        output.set_values(storage)
+        data = self._pkg.exp(self._inputs[0].data)
+        output = Tensor(data=data, requires_grad=self._inputs[0].requires_grad)
         return output
 
     def backward(self):
@@ -415,32 +429,30 @@ class ExpOperation(SmartOperation):
             return
         input0 = self._inputs[0]
         input0.make_grad()
-        storage = self._output.grad * self._output.data
-        input0.update_grad(storage)
+        data = self._output.grad * self._output.data
+        input0.update_grad(data)
 
     def _check_inputs(self, *args):
+        self._check_input_device(*args)
         self._inputs = args
         message = ""
         if len(args) != 1:
             message = "{} should have 1 inputs".format(self._name)
             return False, message
-        if not isinstance(self._inputs[0], SmartTensor):
-            message = "{} input should be SmartTensor".format(self._name)
+        if not isinstance(self._inputs[0], Tensor):
+            message = "{} input should be Tensor".format(self._name)
             return False, message
         return True, message
 
 
-class LogOperation(SmartOperation):
+class LogOperation(Operation):
     def __init__(self):
         super(LogOperation, self).__init__("LogOperation")
 
     def forward(self, *args):
         super(LogOperation, self).forward(*args)
-        output = SmartTensor(self._inputs[0].shape, device=self._inputs[0].device,
-                             dtype=self._inputs[0].dtype,
-                             requires_grad=self._inputs[0].requires_grad)
-        storage = self._inputs[0].data.log()
-        output.set_values(storage)
+        data = self._pkg.log(self._inputs[0].data)
+        output = Tensor(data=data, requires_grad=self._inputs[0].requires_grad)
         return output
 
     def backward(self):
@@ -448,22 +460,23 @@ class LogOperation(SmartOperation):
             return
         input0 = self._inputs[0]
         input0.make_grad()
-        storage = self._output.grad / input0.data
-        input0.update_grad(storage)
+        grad = self._output.grad / input0.data
+        input0.update_grad(grad)
 
     def _check_inputs(self, *args):
+        self._check_input_device(*args)
         self._inputs = args
         message = ""
         if len(args) != 1:
             message = "{} should have 1 inputs".format(self._name)
             return False, message
-        if not isinstance(self._inputs[0], SmartTensor):
-            message = "{} input should be SmartTensor".format(self._name)
+        if not isinstance(self._inputs[0], Tensor):
+            message = "{} input should be Tensor".format(self._name)
             return False, message
         return True, message
 
 
-class SumOperation(SmartOperation):
+class SumOperation(Operation):
     def __init__(self, axis=None, keepdims=True):
         super(SumOperation, self).__init__("SumOperation")
         self._axis = axis
@@ -471,11 +484,8 @@ class SumOperation(SmartOperation):
 
     def forward(self, *args):
         super(SumOperation, self).forward(*args)
-        storage = StorageOp.sum(self._inputs[0].data, self._axis, self._keepdims)
-        output = SmartTensor(storage.shape, device=self._inputs[0].device,
-                             dtype=self._inputs[0].dtype,
-                             requires_grad=self._inputs[0].requires_grad)
-        output.set_values(storage)
+        data = self._pkg.sum(self._inputs[0].data, axis=self._axis, keepdims=self._keepdims)
+        output = Tensor(data=data, requires_grad=self._inputs[0].requires_grad)
         return output
 
     def backward(self):
@@ -483,35 +493,33 @@ class SumOperation(SmartOperation):
             return
         input0 = self._inputs[0]
         input0.make_grad()
-        if self._output.size > 1:
-            storage = self._output.grad * StorageOp.ones_like(input0.data)
+        if self._axis is not None:
+            grad = self._output.grad * input0.pkg.ones_like(input0.data)
         else:
-            storage = self._output.grad.data[0] * StorageOp.ones_like(input0.data)
-        input0.update_grad(storage)
+            grad = self._output.grad.item() * self._pkg.ones_like(input0.data)
+        input0.update_grad(grad)
 
     def _check_inputs(self, *args):
+        self._check_input_device(*args)
         self._inputs = args
         message = ""
         if len(args) != 1:
             message = "{} should have 1 inputs".format(self._name)
             return False, message
-        if not isinstance(self._inputs[0], SmartTensor):
-            message = "{} input should be SmartTensor".format(self._name)
+        if not isinstance(self._inputs[0], Tensor):
+            message = "{} input should be Tensor".format(self._name)
             return False, message
         return True, message
 
 
-class SigmoidOperation(SmartOperation):
+class SigmoidOperation(Operation):
     def __init__(self):
         super(SigmoidOperation, self).__init__("SigmoidOperation")
 
     def forward(self, *args):
         super(SigmoidOperation, self).forward(*args)
-        output = SmartTensor(self._inputs[0].shape, device=self._inputs[0].device,
-                             dtype=self._inputs[0].dtype,
-                             requires_grad=self._inputs[0].requires_grad)
-        storage = StorageOp.sigmoid(self._inputs[0].data)
-        output.set_values(storage)
+        data = sigmoid(self._inputs[0].data)
+        output = Tensor(data=data, requires_grad=self._inputs[0].requires_grad)
         return output
 
     def backward(self):
@@ -519,32 +527,30 @@ class SigmoidOperation(SmartOperation):
             return
         input0 = self._inputs[0]
         input0.make_grad()
-        storage = self._output.grad * self._output.data * (1 - self._output.data)
-        input0.update_grad(storage)
+        grad = self._output.grad * self._output.data * (1 - self._output.data)
+        input0.update_grad(grad)
 
     def _check_inputs(self, *args):
+        self._check_input_device(*args)
         self._inputs = args
         message = ""
         if len(args) != 1:
             message = "{} should have 1 inputs".format(self._name)
             return False, message
-        if not isinstance(self._inputs[0], SmartTensor):
-            message = "{} input should be SmartTensor".format(self._name)
+        if not isinstance(self._inputs[0], Tensor):
+            message = "{} input should be Tensor".format(self._name)
             return False, message
         return True, message
 
 
-class TanhOperation(SmartOperation):
+class TanhOperation(Operation):
     def __init__(self):
         super(TanhOperation, self).__init__("TanhOperation")
 
     def forward(self, *args):
         super(TanhOperation, self).forward(*args)
-        output = SmartTensor(self._inputs[0].shape, device=self._inputs[0].device,
-                             dtype=self._inputs[0].dtype,
-                             requires_grad=self._inputs[0].requires_grad)
-        storage = StorageOp.tanh(self._inputs[0].data)
-        output.set_values(storage)
+        data = tanh(self._inputs[0].data)
+        output = Tensor(data=data, requires_grad=self._inputs[0].requires_grad)
         return output
 
     def backward(self):
@@ -552,32 +558,30 @@ class TanhOperation(SmartOperation):
             return
         input0 = self._inputs[0]
         input0.make_grad()
-        storage = self._output.grad * (1 - self._output.data**2)
-        input0.update_grad(storage)
+        grad = self._output.grad * (1 - self._output.data**2)
+        input0.update_grad(grad)
 
     def _check_inputs(self, *args):
+        self._check_input_device(*args)
         self._inputs = args
         message = ""
         if len(args) != 1:
             message = "{} should have 1 inputs".format(self._name)
             return False, message
-        if not isinstance(self._inputs[0], SmartTensor):
-            message = "{} input should be SmartTensor".format(self._name)
+        if not isinstance(self._inputs[0], Tensor):
+            message = "{} input should be Tensor".format(self._name)
             return False, message
         return True, message
 
 
-class ReluOperation(SmartOperation):
+class ReluOperation(Operation):
     def __init__(self):
         super(ReluOperation, self).__init__("ReluOperation")
 
     def forward(self, *args):
         super(ReluOperation, self).forward(*args)
-        output = SmartTensor(self._inputs[0].shape, device=self._inputs[0].device,
-                             dtype=self._inputs[0].dtype,
-                             requires_grad=self._inputs[0].requires_grad)
-        storage = StorageOp.relu(self._inputs[0].data)
-        output.set_values(storage)
+        data = relu(self._inputs[0].data)
+        output = Tensor(data=data, requires_grad=self._inputs[0].requires_grad)
         return output
 
     def backward(self):
@@ -585,21 +589,21 @@ class ReluOperation(SmartOperation):
             return
         input0 = self._inputs[0]
         input0.make_grad()
-        storage = StorageOp.zeros_like(input0.grad)
-        storage.set_values(self._output.grad)
+        grad = self._pkg.zeros_like(input0.grad)
+        grad[:] = self._output.grad
 
-        data = storage.data
-        data[input0.data.data < 0] = 0.0
-        input0.update_grad(storage)
+        grad[input0.data < 0] = 0.0
+        input0.update_grad(grad)
 
     def _check_inputs(self, *args):
+        self._check_input_device(*args)
         self._inputs = args
         message = ""
         if len(args) != 1:
             message = "{} should have 1 inputs".format(self._name)
             return False, message
-        if not isinstance(self._inputs[0], SmartTensor):
-            message = "{} input should be SmartTensor".format(self._name)
+        if not isinstance(self._inputs[0], Tensor):
+            message = "{} input should be Tensor".format(self._name)
             return False, message
         return True, message
 
@@ -609,21 +613,21 @@ class MSEOperation(TwoInputsOperation):
         super(MSEOperation, self).__init__("MSEOperation")
 
     def _operation(self, input0, input1):
-        return StorageOp.mse(input0, input1)
+        return mse(input0, input1)
 
     def backward(self):
         self._backward(self._inputs[0], self._inputs[1])
         self._backward(self._inputs[1], self._inputs[0])
 
     def _backward(self, input0, input1):
-        if isinstance(input0, SmartTensor) and input0.requires_grad:
+        if isinstance(input0, Tensor) and input0.requires_grad:
             input0.make_grad()
-            if isinstance(input1, SmartTensor):
-                storage = input0.data - input1.data
+            if isinstance(input1, Tensor):
+                grad = input0.data - input1.data
             else:
-                storage = input0.data - input1
-            storage = self._output.grad * 2.0 * storage / storage.size
-            input0.update_grad(storage)
+                grad = input0.data - input1
+            grad = self._output.grad * 2.0 * grad / grad.size
+            input0.update_grad(grad)
 
 
 class CrossEntropyOperation(TwoInputsOperation):
@@ -635,14 +639,12 @@ class CrossEntropyOperation(TwoInputsOperation):
         layer_input = input0
         label = input1
 
-        self._soft_max_output = StorageOp.zeros_like(input0)
-
-        exp_input = layer_input.exp()
+        exp_input = self._pkg.exp(layer_input)
         sum_exp_input = exp_input.sum(axis=0)
-        self._soft_max_output.set_values(exp_input / sum_exp_input)
+        self._soft_max_output = exp_input / sum_exp_input
 
-        loss = label * self._soft_max_output.log()
-        loss = -loss.sum()
+        loss = label * self._pkg.log(self._soft_max_output)
+        loss = -loss.sum(keepdims=True)
         return loss
 
     def backward(self):
@@ -652,29 +654,120 @@ class CrossEntropyOperation(TwoInputsOperation):
         self._soft_max_output = None
 
     def _backward_soft_max(self, input0, input1):
-        if isinstance(input0, SmartTensor) and input0.requires_grad:
+        if isinstance(input0, Tensor) and input0.requires_grad:
             input0.make_grad()
-            if isinstance(input1, SmartTensor):
-                storage = self._soft_max_output - input1.data
+            if isinstance(input1, Tensor):
+                grad = self._soft_max_output - input1.data
             else:
-                storage = self._soft_max_output - input1
-            storage = self._output.grad * storage
-            input0.update_grad(storage)
+                grad = self._soft_max_output - input1
+            grad = self._output.grad * grad
+            input0.update_grad(grad)
 
     def _backward_label(self, input0, input1):
-        if isinstance(input1, SmartTensor) and input1.requires_grad:
-            storage = -self._output.grad * self._soft_max_output.log()
-            input1.set_values(storage)
+        if isinstance(input1, Tensor) and input1.requires_grad:
+            grad = -self._output.grad * self._soft_max_output.log()
+            input1.set_values(grad)
 
     def _check_inputs(self, *args):
+        self._check_input_device(*args)
         self._inputs = args
         message = ""
         if len(args) != 2:
             message = "{} should have 2 inputs".format(self._name)
             return False, message
-        if not isinstance(self._inputs[0], SmartTensor):
-            message = "input0 should be SmartTensor"
+        if not isinstance(self._inputs[0], Tensor):
+            message = "input0 should be Tensor"
             return False, message
         if self._inputs[0].shape != self._inputs[1].shape:
             raise ValueError("shape of input0 and input1 should be equal")
+        return True, message
+
+
+class AsStrideOption(Operation):
+    def __init__(self):
+        super(AsStrideOption, self).__init__("AsStrideOption")
+
+    def forward(self, *args):
+        super(AsStrideOption, self).forward(*args)
+        self._inputs = args
+        output = Tensor(data=self._inputs[0].data[self._inputs[1]])
+        return output
+
+    def backward(self):
+        self._inputs[0].make_grad()
+        self._inputs[0].grad[self._inputs[1]] = self._inputs[0].grad[self._inputs[1]] + self._output.grad
+
+    def _check_inputs(self, *args):
+        self._check_input_device(*args)
+        self._inputs = args
+        message = ""
+        if len(args) != 2:
+            message = "{} should have 2 inputs".format(self._name)
+            return False, message
+        if not isinstance(self._inputs[0], Tensor):
+            message = "{} first input's type should be Tensor".format(self._name)
+            return False, message
+        return True, message
+
+
+class CatOperation(Operation):
+    def __init__(self):
+        super(CatOperation, self).__init__("CatOperation")
+
+    def forward(self, *args):
+        super(CatOperation, self).forward(*args)
+        data = self._pkg.concatenate(self._inputs[0], axis=self._inputs[1])
+        output = Tensor(data=data)
+        return output
+
+    def backward(self):
+        inputs = self._inputs[0]
+        axis = self._inputs[1]
+        items = [None] * inputs[0].ndim
+        ind = 0
+        for t in inputs:
+            items_t = items.copy()
+            items_t[axis] = range(t.shape[axis]) + ind
+            ind += t.shape[axis]
+            t.update_grad(self._output.grad[items_t])
+
+    def _check_inputs(self, *args):
+        self._check_input_device(*args)
+        self._inputs = args
+        message = ""
+        if len(args) != 2:
+            message = "{} should have 2 inputs".format(self._name)
+            return False, message
+        if not isinstance(self._inputs[0], (tuple, list)):
+            message = "{} first input's type should be tuple or list".format(self._name)
+            return False, message
+        for t in self._inputs[0]:
+            if not isinstance(t, Tensor):
+                message = "array to be cat should be all tensors."
+                return False, message
+
+        if "int" not in str(type(self._inputs[1])):
+            message = "axis along which to cat should be int type."
+            return False, message
+
+        ndim = -1
+        for t in self.inputs[0]:
+            if ndim == -1:
+                ndim = t.ndim
+            else:
+                if ndim != t.ndim:
+                    message = "all the tensors to be cat should have same dimensions."
+                    return False, message
+
+        shape_ = None
+        for t in self._inputs[0]:
+            if shape_ is None:
+                shape_ = t.shape
+            else:
+                for i in range(ndim):
+                    if i != self._inputs[1]:
+                        if shape_[i] != t.shape[i]:
+                            message = "length of each dimensions except axis of tensors should be the same."
+                            return False, message
+
         return True, message

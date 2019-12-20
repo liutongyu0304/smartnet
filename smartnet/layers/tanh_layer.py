@@ -1,13 +1,13 @@
 # coding=utf-8
 from ..module import *
-from ..core.tensor_op import TensorOp
+from ..core import function as F
 
 
-class SmartTanhLayer(SmartModule):
+class TanhLayer(Module):
     def __init__(self):
-        super(SmartTanhLayer, self).__init__("TanhLayer")
+        super(TanhLayer, self).__init__("TanhLayer")
 
     def forward(self, *inputs, **kwargs):
         layer_input = inputs[0]
         # a(n) = (exp(z(n)) - exp(-z(n))) / (exp(z(n) + exp(-z(n))))
-        return TensorOp.tanh(layer_input)
+        return F.tanh(layer_input)

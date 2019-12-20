@@ -1,9 +1,9 @@
 # coding=utf-8
 from ..module import *
-from ..core.tensor_op import TensorOp
+from ..core import function as F
 
 
-class SmartCrossEntropyLayer(SmartModule):
+class CrossEntropyLayer(Module):
     """
     # description：
         cross entropy with soft max layer.
@@ -18,19 +18,19 @@ class SmartCrossEntropyLayer(SmartModule):
         finally backward gradient of loss to a:
             dloss / da = y_hat - y.
     # members:
-        _inputs: list(SmartTensor)
+        _inputs: list(Tensor)
             _inputs[0] is the output of previous layer
             _inputs[1] is the class label with one hot encoding
             _inputs[0], _inputs[1] shape of (m, C)
-        _outputs: list(SmartTensor)
+        _outputs: list(Tensor)
             _outputs[0]: shape of (1, ), loss, only one float entry
             _outputs[1]: shape of (m, C), soft max output y, saved for backward.
     """
     def __init__(self):
-        super(SmartCrossEntropyLayer, self).__init__("CrossEntropy")
+        super(CrossEntropyLayer, self).__init__("CrossEntropy")
 
     def forward(self, *inputs, **kwargs):
         layer_input = inputs[0]
         label = inputs[1]
 
-        return TensorOp.cross_entropy(layer_input, label)
+        return F.cross_entropy(layer_input, label)

@@ -3,39 +3,39 @@ from smartnet.module import *
 import unittest
 
 
-class Module1(SmartModule):
+class Module1(Module):
     def __init__(self):
         super(Module1, self).__init__()
-        self.seq1 = SmartTensor((3, 4))
-        self.l1 = SmartTensor((3, 4))
+        self.seq1 = Tensor((3, 4))
+        self.l1 = Tensor((3, 4))
 
     def forward(self, *inputs, **kwargs):
         pass
 
 
-class Module2(SmartModule):
+class Module2(Module):
     def __init__(self):
         super(Module2, self).__init__()
-        self.seq2 = SmartTensor((3, 4))
-        self.l2 = SmartTensor((3, 4))
+        self.seq2 = Tensor((3, 4))
+        self.l2 = Tensor((3, 4))
         self.module1 = Module1()
 
     def forward(self, *inputs, **kwargs):
         pass
 
 
-class Module3(SmartModule):
+class Module3(Module):
     def __init__(self):
         super(Module3, self).__init__()
-        self.seq3 = SmartTensor((3, 4))
-        self.l3 = SmartTensor((3, 4))
+        self.seq3 = Tensor((3, 4))
+        self.l3 = Tensor((3, 4))
         self.module2 = Module2()
 
     def forward(self, *inputs, **kwargs):
         pass
 
 
-class SmartModuleTest(unittest.TestCase):
+class ModuleTest(unittest.TestCase):
     def setUp(self):
         pass
 

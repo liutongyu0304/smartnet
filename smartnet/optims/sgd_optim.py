@@ -1,15 +1,15 @@
 # coding=utf-8
-from ..optim import SmartOptim
+from ..optim import Optim
 
 
-class SmartSGDOptim(SmartOptim):
+class SGDOptim(Optim):
     """
     # description:
         sgd optimization algorithm.
         w = w - lr * dw
     """
     def __init__(self, trainable_parameters, lr=0.01, weight_decay=0):
-        super(SmartSGDOptim, self).__init__("sgd", trainable_parameters)
+        super(SGDOptim, self).__init__("sgd", trainable_parameters)
         self._lr = lr
         self._weight_decay = weight_decay
 

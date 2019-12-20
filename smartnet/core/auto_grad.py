@@ -9,7 +9,7 @@ class SmartAutoGrad(object):
         self._dag = list()
 
     def add_tensor(self, tensor):
-        assert isinstance(tensor, SmartTensor)
+        assert isinstance(tensor, Tensor)
         if tensor not in self._tensors:
             self._tensors.append(tensor)
 
@@ -29,7 +29,7 @@ class SmartAutoGrad(object):
             if p.op is None:
                 break
             for t in p.op.inputs:
-                if isinstance(t, SmartTensor):
+                if isinstance(t, Tensor):
                     assert t in self._tensors
                     if not t.is_leaf and t.requires_grad:
                         self._dag.append(t)
@@ -39,11 +39,13 @@ class SmartAutoGrad(object):
     def backward(self):
         origin = self._dag[0]
         origin.make_grad()
-        data = origin.grad.data
-        data[:] = 1.0
+        origin._grad = 0 * origin.grad + 1.0
         for tensor in self._dag:
             if tensor.op is not None:
-                tensor.op.backward()
+                if tensor.is_leaf:
+                    raise RuntimeError("leaf variable has been moved into the graph interior")
+                else:
+                    tensor.op.backward()
         for tensor in self._tensors:
             if not tensor.is_leaf and not tensor.retain_grad:
                 tensor.clear_grad()

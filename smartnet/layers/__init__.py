@@ -2,9 +2,9 @@
 from __future__ import absolute_import
 
 
-from .linear_layer import SmartLinearLayer
-from .mse_layer import SmartMSELayer
-from .sigmoid_layer import SmartSigmoidLayer
-from .relu_layer import SmartReluLayer
-from .tanh_layer import SmartTanhLayer
-from .cross_entropy_layer import SmartCrossEntropyLayer
+from .linear_layer import LinearLayer
+from .mse_layer import MSELayer
+from .sigmoid_layer import SigmoidLayer
+from .relu_layer import ReluLayer
+from .tanh_layer import TanhLayer
+from .cross_entropy_layer import CrossEntropyLayer

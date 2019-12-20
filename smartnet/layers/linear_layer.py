@@ -1,8 +1,9 @@
 # coding=utf-8
 from ..module import *
+from ..import core as Core
 
 
-class SmartLinearLayer(SmartModule):
+class LinearLayer(Module):
     """
     # description
         linear(full connected) layer.
@@ -15,7 +16,7 @@ class SmartLinearLayer(SmartModule):
               where l(n-1) is the nodes of the (n-1)th layer. if the (n-1) layer is cnn
               layer, then a(n-1) is reshaped from (m, h, w, c) to (m, h*w*c).
         w(n): weight of the linear layer, shape of (l(n-1), l(n)), to be trained.
-        b(n): bias of the linear layer, shape of (l(n), 1), to be trained if _has_bias is True.
+        b(n): bias of the linear layer, shape of (l(n), 1), to be trained if has_bias is True.
         notice that while doing add operation with b(n), a broadcasting operation of b(n) is done.
 
         backward of linear layer.
@@ -25,48 +26,40 @@ class SmartLinearLayer(SmartModule):
             dw = a.t * dz
             db = sum(dz, axis=0)
     # members
-        _input_nodes: int
+        input_nodes: int
             nodes of (n-1)th layer
-        _output_nodes: int
+        output_nodes: int
             nodes of nth layer
-        _has_bias: bool
+        has_bias: bool
             whether linear layer has bias
-        _weight: SmartTensor
+        weight: Tensor
             weight of linear layer
-        _bias: SmartTensor
+        bias: Tensor
             bias of linear layer
     """
-    def __init__(self, input_nodes, output_nodes, has_bias=True, need_backward=True):
-        super(SmartLinearLayer, self).__init__("LinearLayer")
-        self._input_nodes = input_nodes
-        self._output_nodes = output_nodes
-        self._has_bias = has_bias
+    def __init__(self, input_nodes, output_nodes, has_bias=True):
+        super(LinearLayer, self).__init__("LinearLayer")
+        self.input_nodes = input_nodes
+        self.output_nodes = output_nodes
+        self.has_bias = has_bias
 
         # initialized with need_backward
-        self._weight = TensorOp.random((input_nodes, output_nodes), requires_grad=True)
+        self.weight = Core.random((input_nodes, output_nodes), requires_grad=True)
         if has_bias:
-            self._bias = TensorOp.random((output_nodes, 1), requires_grad=True)
+            self.bias = Core.random((1, output_nodes), requires_grad=True)
         else:
-            self._bias = None
+            self.bias = None
 
     def forward(self, *inputs, **kwargs):
         # z(n) = a(n-1) * w(n) + b(n)
         layer_input = inputs[0]
-        data = layer_input.matmul(self._weight)
-        if self._has_bias:
-            data = data + self._bias
+        data = layer_input.matmul(self.weight)
+        if self.has_bias:
+            data = data + self.bias
         return data
 
     def get_layer_property(self):
         return {"name": self._name,
-                "input_nodes": self._input_nodes,
-                "output_nodes": self._output_nodes,
-                "has_bias": self._has_bias}
-
-    @property
-    def weight(self):
-        return self._weight
-
-    @property
-    def bias(self):
-        return self._bias
+                "input_nodes": self.input_nodes,
+                "output_nodes": self.output_nodes,
+                "has_bias": self.has_bias}

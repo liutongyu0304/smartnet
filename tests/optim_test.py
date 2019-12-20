@@ -1,9 +1,11 @@
+# coding=utf-8
 from smartnet.optims import *
-from smartnet import *
+from smartnet.layers import *
+import smartnet as sn
 import unittest
 
 
-class SmartOptimTest(unittest.TestCase):
+class OptimTest(unittest.TestCase):
     def setUp(self):
         pass
 
@@ -20,13 +22,13 @@ class SmartOptimTest(unittest.TestCase):
 
     @staticmethod
     def test_sgd():
-        x = TensorOp.random((30, 3))
-        w = TensorOp.ones((3, 1))
-        y = TensorOp.matmul(x, w)
+        x = sn.random((30, 3))
+        w = sn.ones((3, 1))
+        y = sn.matmul(x, w)
 
-        linear = SmartLinearLayer(3, 1, has_bias=False)
-        opt = SmartSGDOptim(linear.named_parameters())
-        loss = SmartMSELayer()
+        linear = LinearLayer(3, 1, has_bias=False)
+        opt = SGDOptim(linear.named_parameters())
+        loss = MSELayer()
 
         for i in range(1000):
             opt.zero_grad()
@@ -38,13 +40,13 @@ class SmartOptimTest(unittest.TestCase):
 
     @staticmethod
     def test_momentum():
-        x = TensorOp.random((30, 3))
-        w = TensorOp.ones((3, 1))
-        y = TensorOp.matmul(x, w)
+        x = sn.random((30, 3))
+        w = sn.ones((3, 1))
+        y = sn.matmul(x, w)
 
-        linear = SmartLinearLayer(3, 1, has_bias=False)
-        opt = SmartMomentumOptim(linear.named_parameters(), lr=0.001)
-        loss = SmartMSELayer()
+        linear = LinearLayer(3, 1, has_bias=False)
+        opt = MomentumOptim(linear.named_parameters(), lr=0.001)
+        loss = MSELayer()
 
         for i in range(1000):
             opt.zero_grad()
@@ -56,13 +58,13 @@ class SmartOptimTest(unittest.TestCase):
 
     @staticmethod
     def test_rmsprop():
-        x = TensorOp.random((30, 3))
-        w = TensorOp.ones((3, 1))
-        y = TensorOp.matmul(x, w)
+        x = sn.random((30, 3))
+        w = sn.ones((3, 1))
+        y = sn.matmul(x, w)
 
-        linear = SmartLinearLayer(3, 1, has_bias=False)
-        opt = SmartRMSPropOptim(linear.named_parameters())
-        loss = SmartMSELayer()
+        linear = LinearLayer(3, 1, has_bias=False)
+        opt = RMSPropOptim(linear.named_parameters())
+        loss = MSELayer()
 
         for i in range(1000):
             opt.zero_grad()
@@ -74,13 +76,13 @@ class SmartOptimTest(unittest.TestCase):
 
     @staticmethod
     def test_adam():
-        x = TensorOp.random((30, 3))
-        w = TensorOp.ones((3, 1))
-        y = TensorOp.matmul(x, w)
+        x = sn.random((30, 3))
+        w = sn.ones((3, 1))
+        y = sn.matmul(x, w)
 
-        linear = SmartLinearLayer(3, 1, has_bias=False)
-        opt = SmartAdamOptim(linear.named_parameters())
-        loss = SmartMSELayer()
+        linear = LinearLayer(3, 1, has_bias=False)
+        opt = AdamOptim(linear.named_parameters())
+        loss = MSELayer()
 
         for i in range(1000):
             opt.zero_grad()

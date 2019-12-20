@@ -1,9 +1,9 @@
 # coding=utf-8
 from ..module import *
-from ..core.tensor_op import TensorOp
+from ..core import function as F
 
 
-class SmartMSELayer(SmartModule):
+class MSELayer(Module):
     """
     # description:
         mean square error layer.
@@ -12,10 +12,10 @@ class SmartMSELayer(SmartModule):
         dloss/dy_hat = 2 * (y_hat - y) / m
     """
     def __init__(self):
-        super(SmartMSELayer, self).__init__("MSE")
+        super(MSELayer, self).__init__("MSE")
 
     def forward(self, *inputs, **kwargs):
         layer_input = inputs[0]
         label = inputs[1]
 
-        return TensorOp.mse(layer_input, label)
+        return F.mse(layer_input, label)

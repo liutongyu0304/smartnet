@@ -1,9 +1,8 @@
-from ..optim import SmartOptim
-from ..core.storage_op import StorageOp
+from ..optim import Optim
 from collections import OrderedDict
 
 
-class SmartMomentumOptim(SmartOptim):
+class MomentumOptim(Optim):
     """
     # description:
         sgd optimization algorithm with Momentum.
@@ -11,7 +10,7 @@ class SmartMomentumOptim(SmartOptim):
         w = w - lr * dw
     """
     def __init__(self, trainable_parameters, lr=0.01, weight_decay=0, momentum=0.9):
-        super(SmartMomentumOptim, self).__init__("momentum", trainable_parameters)
+        super(MomentumOptim, self).__init__("momentum", trainable_parameters)
         self._lr = lr
         self._weight_decay = weight_decay
         self._momentum_buffs = OrderedDict()
@@ -27,9 +26,9 @@ class SmartMomentumOptim(SmartOptim):
                 par.update_grad(data * self._weight_decay)
 
             if name not in self._momentum_buffs.keys():
-                self._momentum_buffs[name] = StorageOp.zeros_like(grad)
+                self._momentum_buffs[name] = par.pkg.zeros_like(grad)
             momentum = self._momentum_buffs[name]
-            momentum.set_values(self._momentum * momentum + grad)
+            momentum[:] = self._momentum * momentum + grad
             par.set_values(data - self._lr * momentum)
 
     def get_property(self):

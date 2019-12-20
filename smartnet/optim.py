@@ -3,7 +3,7 @@ from .layers import *
 from .core import *
 
 
-class SmartOptim(object):
+class Optim(object):
     def __init__(self, name, trainable_parameters):
         self._name = name
         self._trainable_parameters = trainable_parameters

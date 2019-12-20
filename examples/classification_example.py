@@ -4,15 +4,17 @@ import smartnet.layers as layers
 import numpy as np
 from matplotlib import pyplot as plt
 from sklearn.metrics import r2_score
+from sklearn.datasets import make_circles, make_moons
+from sklearn.preprocessing import OneHotEncoder
 
 
 """
 # description：
-    do some regressions by smartnet.
+    do classification by smartnet.
 """
 
 
-options = {"lr": 0.01, "weight_decay": 0.01,
+options = {"lr": 0.01, "weight_decay": 0.00,
            "momentum": 0.9, "beta": 0.999, "eps": 1e-8}
 
 
@@ -22,16 +24,21 @@ class DataFactory(object):
         self.y = None
         self.nsamples = 0
 
-    def create_y_by_fun1(self, nsamples):
-        self.x = sn.Tensor(data=np.random.rand(nsamples, 3), requires_grad=False)
-        self.y = sn.Tensor(data=np.zeros((nsamples, 1)), requires_grad=False)
-        self.y.data[:, 0] = 0.5*self.x.data[:, 0] * self.x.data[:, 1] + self.x.data[:, 2]**2 + 0.1
+    def create_circles(self, nsamples):
+        x, y = make_circles(n_samples=nsamples, factor=0.5, noise=0.1)
+        h = OneHotEncoder()
+        y = h.fit_transform(y.reshape((-1, 1))).todense()
+        self.x = sn.Tensor(data=x, requires_grad=False)
+        self.y = sn.Tensor(data=y, requires_grad=False)
         self.nsamples = nsamples
 
-    def create_y_by_fun2(self, nsamples):
-        self.x = sn.Tensor(data=np.random.rand(nsamples, 3), requires_grad=False)
-        self.y = sn.Tensor(data=np.zeros((nsamples,)), requires_grad=False)
-        self.y.data[:, 0] = np.exp(self.x.data[:, 0]) * self.x.data[:, 1] + self.x.data[:, 2]
+    def create_moons(self, nsamples):
+        x, y = make_moons(n_samples=self.nsamples, noise=0.1)
+        h = OneHotEncoder()
+        y = h.fit_transform(y.reshape((-1, 1))).todense()
+        self.x = sn.Tensor(data=x, requires_grad=False)
+        self.y = sn.Tensor(data=y, requires_grad=False)
+        self.nsamples = nsamples
 
     def get_train_samples(self):
         n = int(self.nsamples*0.5)
@@ -46,22 +53,20 @@ class DataFactory(object):
         return test_x, test_y
 
 
-def create_net(net_nodes):
+def create_net(features, labels):
     class Net(sn.Module):
         def __init__(self):
             super(Net, self).__init__()
-            self.l1 = layers.LinearLayer(net_nodes, 2*net_nodes)
-            self.a1 = layers.ReluLayer()
-            self.l2 = layers.LinearLayer(2*net_nodes, 1)
+            self.l1 = layers.LinearLayer(features, 2*features)
+            self.a1 = layers.SigmoidLayer()
+            self.l2 = layers.LinearLayer(2*features, labels)
             self.a2 = layers.SigmoidLayer()
-            self.l3 = layers.LinearLayer(1, 1)
 
         def forward(self, x):
             x = self.l1(x)
             x = self.a1(x)
             x = self.l2(x)
-            x = self.a2(x)
-            y = self.l3(x)
+            y = self.a2(x)
             return y
 
     return Net()
@@ -73,12 +78,12 @@ def regression_example():
     loss = np.zeros((periods,))
 
     df = DataFactory()
-    df.create_y_by_fun1(nsamples)
-    # df.create_y_by_fun2(nsamples)
+    df.create_circles(nsamples)
+    # df.create_moons(nsamples)
 
     train_x, train_y = df.get_train_samples()
-    net = create_net(3)
-    net_loss = layers.MSELayer()
+    net = create_net(2, 2)
+    net_loss = layers.CrossEntropyLayer()
     opt = optims.RMSPropOptim(net.named_parameters(),
                               lr=options["lr"], weight_decay=options["weight_decay"],
                               beta=options["beta"])
@@ -93,6 +98,7 @@ def regression_example():
         opt.step()
     # plot train loss
     plt.plot(loss)
+    plt.show()
 
     # plot train result
     with sn.no_grad():

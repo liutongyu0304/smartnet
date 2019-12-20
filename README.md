@@ -1,6 +1,6 @@
 # smartnet
 a smart(simple) implentation of dynamic compute graph and neural net just like pytorch based on numpy and cupy.  
-#how to use  
+# how to use  
 it is much alike pytorch. for a simple optimization problem:
 
 ```

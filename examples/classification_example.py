@@ -3,7 +3,7 @@ import smartnet.optims as optims
 import smartnet.layers as layers
 import numpy as np
 from matplotlib import pyplot as plt
-from sklearn.metrics import r2_score
+from sklearn.metrics .classification import accuracy_score
 from sklearn.datasets import make_circles, make_moons
 from sklearn.preprocessing import OneHotEncoder
 
@@ -11,6 +11,7 @@ from sklearn.preprocessing import OneHotEncoder
 """
 # description：
     do classification by smartnet.
+    datasets are created by sklearn.
 """
 
 
@@ -72,9 +73,9 @@ def create_net(features, labels):
     return Net()
 
 
-def regression_example():
+def classification_example():
     nsamples = 500
-    periods = 100
+    periods = 500
     loss = np.zeros((periods,))
 
     df = DataFactory()
@@ -104,24 +105,19 @@ def regression_example():
     with sn.no_grad():
         predict_y = net(train_x)
         l = net_loss(predict_y, train_y)
-    print("trian set loss:", l.data[0, 0])
-    print("train set correlation", np.corrcoef(train_y.data[:, 0], predict_y.data[:, 0])[0, 1])
-    print("train set r2 score", r2_score(train_y.data[:, 0], predict_y.data[:, 0]))
-    plt.figure(2)
-    plt.scatter(train_y.data[:, 0], predict_y.data[:, 0])
+    print("trian set loss:", l.item())
+    print("train set accuracy score", accuracy_score(np.argmax(train_y.data, axis=1),
+                                                     np.argmax(predict_y.data, axis=1)))
 
     # plot test result
     test_x, test_y = df.get_test_samples()
     with sn.no_grad():
         predict_y = net(test_x)
         l = net_loss(predict_y, test_y)
-    print("\ntest set loss:", l.data[0, 0])
-    print("test set correlation", np.corrcoef(test_y.data[:, 0], predict_y.data[:, 0])[0, 1])
-    print("test set r2 score", r2_score(test_y.data[:, 0], predict_y.data[:, 0]))
-    plt.figure(3)
-    plt.scatter(test_y.data[:,0], predict_y.data[:,0])
-    plt.show()
+    print("\ntest set loss:", l.item())
+    print("test set accuracy score", accuracy_score(np.argmax(test_y.data, axis=1),
+                                                     np.argmax(predict_y.data, axis=1)))
 
 
 if __name__ == "__main__":
-    regression_example()
+    classification_example()

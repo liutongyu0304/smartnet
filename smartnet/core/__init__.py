@@ -30,10 +30,9 @@ def ones_like(tensor):
 
 
 def random(shape, device="cpu", dtype=np.float32, requires_grad=False):
-    t = Tensor(shape, device=device,
+    pkg = get_package_by_device(device)
+    t = Tensor(data=pkg.random.rand(*shape), device=device,
                dtype=dtype, requires_grad=requires_grad)
-    sp = get_package_by_device(device)
-    t.data[:] = sp.random.rand(*shape)
     return t
 
 

@@ -85,7 +85,7 @@ def linear_regression_example():
             l = net_loss(y, df.initial_y)
             l.backward()
             opt.step()
-            loss[j, i] = l.data[0, 0]
+            loss[j, i] = l.item()
 
     d = pd.DataFrame(loss, columns=["sgd", "momentum", "rmsprop", "adam"])
     d.plot()

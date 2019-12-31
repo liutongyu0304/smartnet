@@ -640,7 +640,7 @@ class CrossEntropyOperation(TwoInputsOperation):
         label = input1
 
         exp_input = self._pkg.exp(layer_input)
-        sum_exp_input = exp_input.sum(axis=0)
+        sum_exp_input = exp_input.sum(axis=1, keepdims=True)
         self._soft_max_output = exp_input / sum_exp_input
 
         loss = label * self._pkg.log(self._soft_max_output)

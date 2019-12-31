@@ -88,7 +88,7 @@ def regression_example():
         opt.zero_grad()
         y = net.forward(train_x)
         l = net_loss(y, train_y)
-        loss[j] = l.data[0, 0]
+        loss[j] = l.item()
         l.backward()
         opt.step()
     # plot train loss
@@ -109,7 +109,7 @@ def regression_example():
     with sn.no_grad():
         predict_y = net(test_x)
         l = net_loss(predict_y, test_y)
-    print("\ntest set loss:", l.data[0, 0])
+    print("\ntest set loss:", l.item())
     print("test set correlation", np.corrcoef(test_y.data[:, 0], predict_y.data[:, 0])[0, 1])
     print("test set r2 score", r2_score(test_y.data[:, 0], predict_y.data[:, 0]))
     plt.figure(3)

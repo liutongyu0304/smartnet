@@ -37,12 +37,11 @@ class Tensor(object):
             self._device = device
             self._data = self.pkg.zeros(shape, dtype=dtype)
         else:
-            if isinstance(data, cp.ndarray):
-                self._data = data
-                self._device = "cuda"
-            else:
+            if isinstance(data, (np.ndarray, list, tuple)):
                 self._device = "cpu"
-                self._data = self.pkg.asarray(data)
+            else:
+                self._device = "cuda"
+            self._data = self.pkg.asarray(data)
         self._grad = None
         self._requires_grad = requires_grad
         self._is_leaf = True

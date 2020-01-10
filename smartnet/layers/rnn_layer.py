@@ -15,7 +15,7 @@ class RnnCell(Module):
         w_ith: shape of (input_size, hidden_size), weight of x, to be trained tensor.
         w_hh: shape of (hidden_size, hidden_size), weight of h_i, to be trained tensor.
         b_ih: shape of (1, hidden_size), bias of x, to be trained tensor.
-        b_hh: shape of (1, hidden_size), bias of h_i, to bt trained tensor.
+        b_hh: shape of (1, hidden_size), bias of h_i, to be trained tensor.
     """
     def __init__(self, input_size, hidden_size, bias=True, nonlinearity='tanh'):
         super(RnnCell, self).__init__("RnnCell")

@@ -14,6 +14,13 @@ class SmartAutoGrad(object):
             self._tensors.append(tensor)
 
     def create_dag(self, tensor):
+        """
+        # description:
+            non-leaf tensor is created by operation, and operation's inputs point to the next tensor.
+            tenors and operations make a directed acyclic graph.
+            this function do broad first search of dag.
+            begin from needed backward tensor, and put all the tensors that requires gradient to a queue.
+        """
         assert tensor in self._tensors
         if tensor.size != 1:
             raise Exception("backward should begin from scalar.")
@@ -32,6 +39,13 @@ class SmartAutoGrad(object):
                 if isinstance(t, Tensor):
                     assert t in self._tensors
                     if not t.is_leaf and t.requires_grad:
+                        if t in self._dag:
+                            # if t already exists in dag, if putting it to queue again,
+                            # it will backwards twice, which make a wrong result of next tensors.
+                            # if do not put it, the previous t does not have information
+                            # between previous t and current t.
+                            # so the best idea is remove previous t and then put t to dag.
+                            self._dag.remove(t)
                         self._dag.append(t)
                         q.put(t)
         return self._dag

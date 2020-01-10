@@ -69,3 +69,13 @@ def mse(left, right):
 def cross_entropy(left, right):
     from .op import CrossEntropyOperation
     return CrossEntropyOperation()(left, right)
+
+
+def drop_out(t, keep_probs=0.5):
+    from .op import DropOutOperation
+    return DropOutOperation(keep_probs=keep_probs)(t)
+
+
+def clip(t, min_value, max_value):
+    from .op import ClipOperation
+    return ClipOperation()(t, min_value, max_value)

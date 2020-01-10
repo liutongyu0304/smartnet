@@ -86,11 +86,11 @@ class Tensor(object):
         assert self._requires_grad
         if self._data is None or self._grad is None:
             return
-        self._data = self._data - lr * self._grad
+        self._data -= lr * self._grad
 
     def update_grad(self, grad):
         if self._grad is not None:
-            self._grad = self._grad + grad
+            self._grad += grad
     
     def make_grad(self):
         if self._grad is None:

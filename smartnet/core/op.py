@@ -771,3 +771,77 @@ class CatOperation(Operation):
                             return False, message
 
         return True, message
+
+
+class DropOutOperation(Operation):
+    def __init__(self, keep_probs=0.5):
+        super(DropOutOperation, self).__init__("DropOutOperation")
+        assert 0 < keep_probs <= 1
+        self._keep_probs = keep_probs
+        self._prob_array = None
+
+    def forward(self, *args):
+        super(DropOutOperation, self).forward(*args)
+        self._inputs = args
+        layer_input = self._inputs[0]
+        self._prob_array = self._pkg.random.rand(*layer_input.shape)
+        output = Tensor(data=layer_input.data / self._keep_probs)
+        output.data[self._prob_array >= self._keep_probs] = 0.0
+        return output
+
+    def backward(self):
+        layer_input = self._inputs[0]
+        layer_input.make_grad()
+        grad = layer_input.grad
+        ind = self._prob_array < self._keep_probs
+        grad[ind] = grad[ind] + self._output.grad[ind] / self._keep_probs
+
+    def _check_inputs(self, *args):
+        self._check_input_device(*args)
+        self._inputs = args
+        message = ""
+        if len(args) != 1:
+            message = "{} should have 1 inputs".format(self._name)
+            return False, message
+        if not isinstance(self._inputs[0], Tensor):
+            message = "{} first input's type should be Tensor".format(self._name)
+            return False, message
+        return True, message
+
+
+class ClipOperation(Operation):
+    """
+    # description:
+        clip gradient in case of gradient explode
+        t = clip(t, min, max)
+    """
+    def __init__(self):
+        super(ClipOperation, self).__init__("ClipOperation")
+        self._ind = None
+
+    def forward(self, *args):
+        self._inputs = args
+        layer_input = self._inputs[0]
+        min_value = self._inputs[1]
+        max_value = self._inputs[2]
+        self._ind = min_value < layer_input < max_value
+        output = Tensor(self._pkg.clip(layer_input, min_value, max_value))
+        return output
+
+    def backward(self):
+        layer_input = self._inputs[0]
+        layer_input.make_grad()
+        grad = layer_input.grad
+        grad[self._ind] = grad[self._ind] + self._output.grad[self._ind]
+
+    def _check_inputs(self, *args):
+        self._check_input_device(*args)
+        self._inputs = args
+        message = ""
+        if len(args) != 3:
+            message = "{} should have 3 inputs".format(self._name)
+            return False, message
+        if not isinstance(self._inputs[0], Tensor):
+            message = "{} first input's type should be Tensor".format(self._name)
+            return False, message
+        return True, message

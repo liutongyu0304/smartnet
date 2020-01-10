@@ -18,8 +18,8 @@ def zeros_like(tensor):
 
 
 def ones(shape, device="cpu", dtype=np.float32, requires_grad=False):
-    t = Tensor(shape, device=device,
-                    dtype=dtype, requires_grad=requires_grad)
+    t = Tensor(shape=shape, device=device,
+               dtype=dtype, requires_grad=requires_grad)
     t.data[:] = 1.0
     return t
 
